@@ -68,6 +68,30 @@ export function donoDo(namespace: string): string {
 export const DONO_DESTE_REPO = donoDo(NAMESPACE_DESTE_REPO);
 
 /**
+ * O resto da identidade, no mesmo lugar e pelo mesmo motivo.
+ *
+ * As catracas de marca (`marca-do-produto-nao-se-edita-no-codigo`, `branding-saida`,
+ * `branding-marca-resolve`) e a de imagens (`namespace-das-imagens`) escreviam
+ * "DeskcommCRM" e `publish-image.yml` à mão. Para este repositório é o mesmo valor
+ * de sempre. Para um fork que segue o RECADO_AO_FORK, era a metade que continuava
+ * vermelha depois de trocar o namespace (medido num fork em 23/09/2026: 17 casos
+ * em 4 arquivos): a marca, o nome do repositório na URL de origem e o workflow
+ * que publica são identidade tanto quanto o namespace. Aqui o fork troca os quatro
+ * num arquivo só, que nenhum rebase toca — e "DeskcommCRM" voltando por descuido
+ * em `lib/branding.ts` continua reprovando, contra ESTE valor, que é o que a
+ * catraca de marca sempre quis pegar.
+ */
+
+/** O nome do repositório no GitHub: a URL de origem (kit e Dockerfiles) deriva daqui. */
+export const NOME_DESTE_REPO = "DeskcommCRM";
+
+/** A marca padrão do produto: o que `DEFAULT_APP_NAME` (lib/branding.ts) tem de ser. */
+export const MARCA_DESTE_REPO = "DeskcommCRM";
+
+/** O workflow que publica as imagens em NAMESPACE_DESTE_REPO; a matriz dele é conferida contra o kit. */
+export const WORKFLOW_DE_IMAGENS_DESTE_REPO = ".github/workflows/publish-image.yml";
+
+/**
  * O dono da conta que EXECUTA o workflow, ou `null` fora do GitHub Actions.
  *
  * `GITHUB_REPOSITORY_OWNER` é a única referência que NÃO vem do checkout do PR.

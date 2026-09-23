@@ -10,6 +10,8 @@ import {
   donoConfiavelDoRunner,
   donoDo,
   NAMESPACE_DESTE_REPO,
+  NOME_DESTE_REPO,
+  WORKFLOW_DE_IMAGENS_DESTE_REPO,
 } from "./_identidade-deste-repo";
 
 /**
@@ -80,7 +82,7 @@ const RAIZ = process.cwd();
 
 const COMUM = fs.readFileSync(path.join(RAIZ, "hostgator-setup-kit/_common.sh"), "utf8");
 const COMPOSE = fs.readFileSync(path.join(RAIZ, "docker-compose.prod.yml"), "utf8");
-const PUBLICA = fs.readFileSync(path.join(RAIZ, ".github/workflows/publish-image.yml"), "utf8");
+const PUBLICA = fs.readFileSync(path.join(RAIZ, WORKFLOW_DE_IMAGENS_DESTE_REPO), "utf8");
 const ENV_EXEMPLO = fs.readFileSync(path.join(RAIZ, ".env.hostgator.example"), "utf8");
 
 
@@ -149,7 +151,8 @@ const RECADO_AO_FORK =
  */
 
 function imgNs(): string {
-  const m = COMUM.match(/^IMG_NS="([^"]+)"$/m);
+  // Comentário no fim da linha é permitido: um fork anota ali de onde vem o valor.
+  const m = COMUM.match(/^IMG_NS="([^"]+)"[ 	]*(?:#.*)?$/m);
   // O grupo é obrigatório no padrão, mas `noUncheckedIndexedAccess` não sabe
   // disso — e a checagem explícita é melhor que um `!`: se um dia o padrão
   // ganhar um grupo opcional, a mensagem aqui diz o que aconteceu.
@@ -237,7 +240,7 @@ describe("o kit aponta para o que o CI realmente publica", () => {
     // SÓ aquele literal faria a âncora se calar contra o upstream. Derivando, o
     // mesmo commit fica vermelho AQUI, contra seis arquivos que ele não tocou.
     // Medido nos dois sentidos, com a URL fixa e com ela derivada (ver cabeçalho).
-    const repo = `https://github.com/${DONO_DESTE_REPO}/DeskcommCRM`;
+    const repo = `https://github.com/${DONO_DESTE_REPO}/${NOME_DESTE_REPO}`;
     for (const script of ["install.sh", "comecar.sh"]) {
       const texto = fs.readFileSync(path.join(RAIZ, "hostgator-setup-kit", script), "utf8");
       expect(texto).toContain(`REPO_URL="\${REPO_URL:-${repo}.git}"`);
@@ -294,7 +297,7 @@ describe("o kit aponta para o que o CI realmente publica", () => {
 
   it("o registry do kit é o mesmo do workflow de publicação", () => {
     const m = PUBLICA.match(/^\s*REGISTRY:\s*(\S+)$/m);
-    expect(m, "não achei `REGISTRY:` em .github/workflows/publish-image.yml").not.toBeNull();
+    expect(m, "não achei REGISTRY: em " + WORKFLOW_DE_IMAGENS_DESTE_REPO).not.toBeNull();
     expect(imgNs().split("/")[0]).toBe(m![1]);
   });
 
@@ -313,7 +316,7 @@ describe("o kit aponta para o que o CI realmente publica", () => {
     // imagem nova em vez de reprovar a divergência. Fica um piso, que é o que o
     // caso precisa para não passar sobre lista vazia.
     const naMatriz = [...PUBLICA.matchAll(/^\s{10}- name: (\S+)$/gm)].map((m) => m[1]);
-    expect(naMatriz.length, "a matriz de publish-image.yml veio vazia — o leitor cegou").toBeGreaterThanOrEqual(3);
+    expect(naMatriz.length, "a matriz de " + WORKFLOW_DE_IMAGENS_DESTE_REPO + " veio vazia — o leitor cegou").toBeGreaterThanOrEqual(3);
     expect([...naMatriz].sort()).toEqual([...reposDoKit()].sort());
   });
 });
