@@ -129,7 +129,8 @@ const RECADO_AO_FORK =
   "Publicando as próprias imagens? Troque o namespace em três lugares, e só neles: " +
   "IMG_NS em hostgator-setup-kit/_common.sh, o default das três linhas `image:` de " +
   "docker-compose.prod.yml, e as três *_IMAGE de .env.hostgator.example. Depois " +
-  "atualize NAMESPACE_DESTE_REPO neste arquivo, e a URL do repositório em " +
+  "atualize a identidade em tests/unit/_identidade-deste-repo.ts (namespace, nome do " +
+  "repositório, marca e workflow de imagens), e a URL do repositório em " +
   "install.sh, comecar.sh, _common.sh e nos três Dockerfiles (os casos abaixo " +
   "prendem os seis). Todo o resto deriva de IMG_NS. Se você está lendo isto no CI " +
   "do seu próprio fork, houve engano nosso: lá este caso não cobra nada.";
