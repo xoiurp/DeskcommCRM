@@ -490,6 +490,25 @@ describe("POST /api/v1/webhooks/in/[token] (Task 6)", () => {
     expect(after).toBe(before);
   });
 
+  it("caso 5b — corpo que não é JSON: 400, mas o corpo cru fica em webhook_events_log com status error, sem lead", async () => {
+    const antes = rows(`select count(*)::int as n from public.crm_leads where organization_id = '${GOV_ORG}'`)[0]!.n as number;
+    const req = new NextRequest(`http://localhost/api/v1/webhooks/in/${TOKEN_JSON}`, {
+      method: "POST",
+      body: '{"nome": "Bia",',
+      headers: { "content-type": "application/json" },
+    });
+    const res = await POST(req, reqCtx(TOKEN_JSON));
+    expect(res.status).toBe(400);
+    const logRows = rows(
+      `select status, event_type, raw_body, payload_parsed from public.webhook_events_log where webhook_path_token = '${TOKEN_JSON}' and event_type = 'lead_capture.invalid_json' order by received_at desc limit 1`,
+    );
+    expect(logRows.length).toBe(1);
+    expect(logRows[0]!.status).toBe("error");
+    expect(logRows[0]!.raw_body).toBe('{"nome": "Bia",');
+    const depois = rows(`select count(*)::int as n from public.crm_leads where organization_id = '${GOV_ORG}'`)[0]!.n as number;
+    expect(depois).toBe(antes);
+  });
+
   it("caso 6 — isolamento: organization_id do lead vem da FONTE, nunca do body", async () => {
     const spoof = { nome: "Isolamento", telefone: "11999998888", organization_id: "11111111-1111-4111-8111-111111111111" };
     const res = await POST(jsonReq(TOKEN_JSON, spoof), reqCtx(TOKEN_JSON));

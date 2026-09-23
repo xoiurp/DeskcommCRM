@@ -104,6 +104,27 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
     try {
       payload = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
     } catch {
+      // O corpo cru fica registrado ANTES do 400. Sem isto, um provedor que mande
+      // algo fora do formato (ou um erro de configuração do lado dele) morre sem
+      // rastro nenhum — e "log vazio" não distingue "nunca chamou" de "chamou e
+      // foi descartado". A resposta continua 400: é o contrato; o registro é o
+      // que muda. Nenhum lead, nenhum contato.
+      await admin.from("webhook_events_log").insert({
+        organization_id: source.organization_id,
+        provider: "generic",
+        webhook_path_token: token,
+        http_method: "POST",
+        headers: cabecalhosSemSegredo(req),
+        raw_body: rawBody,
+        payload_parsed: {},
+        signature_header: req.headers.get("x-deskcomm-signature"),
+        valid_signature: null,
+        event_type: "lead_capture.invalid_json",
+        external_id: null,
+        status: "error",
+        attempts: 0,
+        error_message: "corpo não é JSON válido",
+      });
       return fail("invalid_request", "invalid_json", 400, { requestId });
     }
   }
@@ -152,12 +173,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
     return fail("unauthenticated", "invalid_signature", 401, { requestId });
   }
 
-  const headersJson: Record<string, string> = {};
-  req.headers.forEach((value, key) => {
-    const k = key.toLowerCase();
-    if (k.startsWith("authorization") || k === "cookie") return;
-    headersJson[key] = value;
-  });
+  const headersJson = cabecalhosSemSegredo(req);
   await admin.from("webhook_events_log").insert({
     organization_id: source.organization_id,
     provider: "generic",
@@ -680,4 +696,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
   );
 
   return respondWithLead(String(lead.id));
+}
+
+/** Cabeçalhos da requisição sem os que carregam segredo (authorization*, cookie). */
+function cabecalhosSemSegredo(req: Request): Record<string, string> {
+  const out: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    const k = key.toLowerCase();
+    if (k.startsWith("authorization") || k === "cookie") return;
+    out[key] = value;
+  });
+  return out;
 }
