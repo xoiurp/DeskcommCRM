@@ -9949,6 +9949,80 @@ on conflict (model) do update set
   notes = excluded.notes,
   superseded_at = null;
 
+-- ---- catálogo do Google medido com chamada real (migration 0391) ----
+--
+-- A 0104 acima semeia ids do Google que ela mesma diz não ter verificado. Medido
+-- em 2026-09-23 com chave real, uma chamada por modelo: gemini-2.0-flash,
+-- gemini-2.5-flash, gemini-2.5-flash-lite e gemini-2.5-pro respondem 404
+-- ("no longer available to new users"); o Google indica gemini-3.6-flash. Os
+-- quatro saem do seletor por depreciação (não delete: llm_calls e ai_pricing
+-- guardam o histórico); entram os três verificados com 200, com preço medido
+-- na fonte (ai.google.dev/gemini-api/docs/pricing, vale até 31/12/2026), e o
+-- padrão passa a ser o que o Google indica. As DUAS tabelas mudam juntas.
+-- Idempotente: update com guarda + insert em conflict.
+
+-- 1. os quatro que o Google recusa saem do seletor (depreciação, não delete)
+update public.ai_models
+   set deprecated_at = now()
+ where provider = 'google'
+   and model_id in ('gemini-2.0-flash', 'gemini-2.5-flash',
+                    'gemini-2.5-flash-lite', 'gemini-2.5-pro')
+   and deprecated_at is null;
+
+-- 2. entram os verificados (chamada real, 200)
+insert into public.ai_models
+  (provider, model_id, display_name, description,
+   input_price_per_million_cents, output_price_per_million_cents, supports_tools)
+values
+  ('google', 'gemini-3.6-flash', 'Gemini 3.6 Flash',
+   'Geração corrente do Flash; é o que o Google indica no lugar dos 2.x descontinuados.',
+   75, 375, true),
+  ('google', 'gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite',
+   'O mais barato da linha Gemini, para classificação e tarefas simples.',
+   30, 250, true),
+  ('google', 'gemini-3-flash-preview', 'Gemini 3 Flash (Preview)',
+   'Prévia; o id pode mudar quando sair da prévia.',
+   50, 300, true)
+on conflict (provider, model_id) do update set
+  display_name = excluded.display_name,
+  description = excluded.description,
+  input_price_per_million_cents = excluded.input_price_per_million_cents,
+  output_price_per_million_cents = excluded.output_price_per_million_cents,
+  supports_tools = excluded.supports_tools,
+  deprecated_at = null;
+
+-- A linha Pro existe, mas o plano gratuito da chave tem cota zero para ela:
+-- quem testa com chave grátis vê 429 e acha que o produto quebrou.
+update public.ai_models
+   set description = 'Prévia; exige plano pago no Google (o plano gratuito tem cota zero na linha Pro). Preço sobe para $4/$18 por milhão acima de 200 mil tokens de entrada.'
+ where provider = 'google'
+   and model_id = 'gemini-3.1-pro-preview'
+   and description is distinct from 'Prévia; exige plano pago no Google (o plano gratuito tem cota zero na linha Pro). Preço sobe para $4/$18 por milhão acima de 200 mil tokens de entrada.';
+
+-- 3. padrão do provedor: o que o Google indica. O índice
+-- `ai_models_one_default_per_provider` é UNIQUE parcial e IMEDIATO — limpar
+-- antes de marcar, senão a migration quebra no meio.
+update public.ai_models set is_default_for_provider = false
+ where provider = 'google' and is_default_for_provider
+   and model_id <> 'gemini-3.6-flash';
+
+update public.ai_models set is_default_for_provider = true
+ where provider = 'google' and model_id = 'gemini-3.6-flash'
+   and not is_default_for_provider;
+
+-- 4. a conta usa a MESMA lista
+insert into public.ai_pricing
+  (model, prompt_cents_per_million_tokens, completion_cents_per_million_tokens, notes)
+values
+  ('gemini-3.6-flash',       75, 375, 'catálogo 0391 — medido na fonte em 2026-09-23 (ai.google.dev/gemini-api/docs/pricing); vale até 31/12/2026'),
+  ('gemini-3.5-flash-lite',  30, 250, 'catálogo 0391 — medido na fonte em 2026-09-23 (ai.google.dev/gemini-api/docs/pricing); vale até 31/12/2026'),
+  ('gemini-3-flash-preview', 50, 300, 'catálogo 0391 — medido na fonte em 2026-09-23 (ai.google.dev/gemini-api/docs/pricing); vale até 31/12/2026')
+on conflict (model) do update set
+  prompt_cents_per_million_tokens = excluded.prompt_cents_per_million_tokens,
+  completion_cents_per_million_tokens = excluded.completion_cents_per_million_tokens,
+  notes = excluded.notes,
+  superseded_at = null;
+
 -- ---- agent_inbox_items.kind ganha 'capabilities_missing' (migration 0105capabilities_missing
 -- Quando o turno não consegue montar as capacidades configuradas na tela, ele
 -- segue sem elas (a conversa do cliente não pode morrer por uma tool extra) —

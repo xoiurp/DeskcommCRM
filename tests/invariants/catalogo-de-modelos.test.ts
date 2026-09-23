@@ -127,7 +127,7 @@ describe("catálogo de modelos", () => {
                              'gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5',
                              'gpt-5.5-pro','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano',
                              'gpt-5.4-pro','gemini-3.1-pro-preview','gemini-3.5-flash',
-                             'gemini-2.5-flash-lite','gemini-2.0-flash')
+                             'gemini-3.6-flash','gemini-3.5-flash-lite','gemini-3-flash-preview')
           and (p.model is null or p.notes not like 'catálogo%')
         order by 1;`,
     );
@@ -150,8 +150,34 @@ describe("catálogo de modelos", () => {
       "gpt-5.6-terra",
       "gpt-5.6-luna",
       "gemini-3.5-flash",
+      "gemini-3.6-flash",
     ]) {
       expect(ids.has(esperado), `${esperado} ausente do catálogo`).toBe(true);
     }
+  });
+
+  it("o que o Google recusa com 404 não é oferecido no seletor", () => {
+    // Medido em 2026-09-23 com chave real, uma chamada de generateContent por
+    // modelo (migration 0391): os quatro respondem "no longer available to new
+    // users". Listar não basta — GET /v1beta/models ainda devolve
+    // gemini-2.5-flash. Ficam no catálogo DEPRECIADOS (histórico de llm_calls e
+    // preço), e o seletor filtra `deprecated_at is null`.
+    const out = sql(
+      `select model_id from public.ai_models
+        where provider = 'google'
+          and model_id in ('gemini-2.0-flash','gemini-2.5-flash',
+                           'gemini-2.5-flash-lite','gemini-2.5-pro')
+          and deprecated_at is null
+        order by 1;`,
+    );
+    expect(out.trim(), `id que o Google recusa ainda oferecido no seletor:\n${out}`).toBe("");
+  });
+
+  it("o padrão do Google é o que o Google indica no lugar dos descontinuados", () => {
+    const out = sql(
+      `select model_id from public.ai_models
+        where provider = 'google' and is_default_for_provider;`,
+    );
+    expect(out.trim()).toBe("gemini-3.6-flash");
   });
 });
