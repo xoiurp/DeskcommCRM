@@ -153,7 +153,7 @@ const RECADO_AO_FORK =
 
 function imgNs(): string {
   // Comentário no fim da linha é permitido: um fork anota ali de onde vem o valor.
-  const m = COMUM.match(/^IMG_NS="([^"]+)"[ 	]*(?:#.*)?$/m);
+  const m = COMUM.match(/^IMG_NS="([^"]+)"[ \t]*(?:#.*)?$/m);
   // O grupo é obrigatório no padrão, mas `noUncheckedIndexedAccess` não sabe
   // disso — e a checagem explícita é melhor que um `!`: se um dia o padrão
   // ganhar um grupo opcional, a mensagem aqui diz o que aconteceu.
