@@ -19,6 +19,26 @@ describe("identidade: tudo deriva do slug, num lugar só", () => {
     });
   });
 
+  it("com o padrão, os identificadores são byte a byte os literais históricos do produto-mãe", () => {
+    // É o contrato com quem já integrou: cookie de sessão, cabeçalhos de webhook (caixa incluída,
+    // porque integrador que compara string distingue), sufixo de iCal e chave de tema. Trocar
+    // qualquer um destes é mudar o produto-mãe, não configurar um fork.
+    expect(derivadosDe(IDENTIDADE_PADRAO.slug)).toEqual({
+      cookieDeSessao: "sb-deskcomm-auth",
+      cookieDeImpersonacao: "deskcomm-impersonate",
+      cabecalhoDeEvento: "X-Deskcomm-Event",
+      cabecalhoDeAssinatura: "X-Deskcomm-Signature",
+      sufixoIcalUid: "deskcomm.app",
+      prefixoDePropriedade: "deskcomm",
+      chaveDoTema: "deskcomm-theme",
+    });
+  });
+
+  it("cabeçalho: cada segmento do slug com inicial maiúscula, o resto como no slug", () => {
+    expect(derivadosDe("creator-os").cabecalhoDeAssinatura).toBe("X-Creator-Os-Signature");
+    expect(derivadosDe("acme").cabecalhoDeEvento).toBe("X-Acme-Event");
+  });
+
   it("o slug derivado da marca é minúsculo, ASCII e sem espaço", () => {
     expect(slugDe("Ótima Gestão")).toBe("otima-gestao");
     expect(slugDe("  Acme CRM! ")).toBe("acme-crm");

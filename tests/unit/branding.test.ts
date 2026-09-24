@@ -231,6 +231,20 @@ const MARCA_CONGELADA: Record<string, EntradaDeMarca> = {
       "deskcommcrm",
     ],
   },
+  "lib/identidade.test.ts": {
+    categoria: "DEV",
+    motivo:
+      "a guarda do contrato com quem já integrou: afirma, byte a byte, que o padrão da identidade continua emitindo os literais históricos (cookie, cabeçalhos com a caixa, iCal, tema). Trocar a string aqui para 'limpar a marca' desarmaria a única prova de que o produto-mãe não mudou",
+    marcas: [
+      "deskcomm",
+      "deskcomm-impersonate",
+      "deskcomm-theme",
+      "deskcomm.app",
+      "sb-deskcomm-auth",
+      "x-deskcomm-event",
+      "x-deskcomm-signature",
+    ],
+  },
   "lib/mcp/server.ts": {
     categoria: "PROTOCOLO",
     motivo:

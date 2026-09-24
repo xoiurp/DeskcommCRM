@@ -79,9 +79,20 @@ export function origemDe(id: Pick<Identidade, "namespace" | "repo">): string {
   return `https://github.com/${id.namespace.split("/")[1] ?? ""}/${id.repo}`;
 }
 
-/** Os identificadores que derivam do slug. Um só lugar, para o par leitura/escrita nunca divergir. */
+/**
+ * Os identificadores que derivam do slug. Um só lugar, para o par leitura/escrita nunca divergir.
+ *
+ * Caixa do cabeçalho: cada segmento do slug com a inicial maiúscula (`deskcomm` → `X-Deskcomm-Signature`,
+ * byte a byte o que o produto-mãe sempre emitiu; `creator-os` → `X-Creator-Os-Signature`). HTTP não
+ * distingue caixa, mas integrador que compara string distingue, então a regra é fixa e testada em
+ * `lib/identidade.test.ts` contra o literal histórico. O produto sempre LÊ sem distinguir caixa
+ * (`headers.get`, que o Node normaliza).
+ */
 export function derivadosDe(slug: string) {
-  const Slug = slug.charAt(0).toUpperCase() + slug.slice(1);
+  const Slug = slug
+    .split("-")
+    .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1))
+    .join("-");
   return {
     cookieDeSessao: `sb-${slug}-auth`,
     cookieDeImpersonacao: `${slug}-impersonate`,
