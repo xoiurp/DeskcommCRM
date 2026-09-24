@@ -72,6 +72,11 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 #   2. a descoberta de repositório nunca sobe para fora de "$TMP";
 #   3. identidade por ambiente, não por `git config` (NENHUM teste aqui mede o autor).
 unset $(git rev-parse --local-env-vars)
+# O checador tira da população o PR PRÓPRIO, lido de GITHUB_REF (refs/pull/N/merge). Os cenários
+# daqui fixam números de PR nas fixtures (#7, #9): rodando no CI de um PR com um desses números, o
+# checador ignorava a fixture como se fosse ele mesmo e nove asserções caíam (medido no PR #7 de um
+# fork, 25/09/2026). O ambiente do CI não entra nesta suíte: cada cenário diz o que é.
+unset GITHUB_REF GITHUB_HEAD_REF GITHUB_BASE_REF GITHUB_SHA GITHUB_EVENT_NAME
 export GIT_CEILING_DIRECTORIES="$TMP"
 export GIT_AUTHOR_NAME="Teste" GIT_AUTHOR_EMAIL="teste@exemplo.invalid"
 export GIT_COMMITTER_NAME="Teste" GIT_COMMITTER_EMAIL="teste@exemplo.invalid"
