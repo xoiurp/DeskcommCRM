@@ -124,6 +124,8 @@ jobs:
   # medianos ficam: parte 1 typecheck+auditorias ~71 s, parte 2 lint ~65 s,
   # parte 3 cercas+kit bash ~80 s. A conta de unit por parte (~845 s / 3 ≈ 282 s)
   # e o total esperado (~6,4 min por parte) são PREVISÃO, não medição: o
+  # 25/09/2026: QUARTA parte. A parte 3/3 estourou o orçamento (13 min contra 12) num PR que não
+  # tocava a suíte; o erro do próprio orçamento manda acrescentar parte, não subir o número.
   # `--shard` corta por contagem, e o terço de cada um só se sabe rodando. O
   # custo é um job a mais por rodada na fila de runners (~25 s de preâmbulo), NÃO
   # MEDIDO quanto à espera.
@@ -142,7 +144,7 @@ jobs:
       # Sem fail-fast: um vermelho numa parte não esconde o da outra.
       fail-fast: false
       matrix:
-        parte: [1, 2, 3]
+        parte: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
 
@@ -321,8 +323,8 @@ jobs:
       # rodaram acima; `--shard` divide os arquivos entre as três partes. Juntos
       # são a suíte inteira, uma vez só. Localmente o comando continua sendo
       # `pnpm test:unit`, sem recorte.
-      - name: Unit tests (parte ${{ matrix.parte }}/3)
-        run: pnpm test:unit --project produto --shard=${{ matrix.parte }}/3
+      - name: Unit tests (parte ${{ matrix.parte }}/4)
+        run: pnpm test:unit --project produto --shard=${{ matrix.parte }}/4
 
       # O ACERVO DE `.changes/` CABE NA TELA DA VPS? — e por que fora de PR.
       #
@@ -437,11 +439,11 @@ jobs:
             exit 0
           fi
           decorrido=$(( ($(date +%s) - VERIFY_INICIO) / 60 ))
-          echo "verify parte ${{ matrix.parte }}/3: ${decorrido} min (orçamento ${ORCAMENTO_MIN} min, teto de travamento 15 min)"
+          echo "verify parte ${{ matrix.parte }}/4: ${decorrido} min (orçamento ${ORCAMENTO_MIN} min, teto de travamento 15 min)"
           if [ "$decorrido" -le "${ORCAMENTO_MIN}" ]; then
             exit 0
           fi
-          echo "::error::A parte ${{ matrix.parte }}/3 do verify levou ${decorrido} min contra um orçamento de ${ORCAMENTO_MIN} min."
+          echo "::error::A parte ${{ matrix.parte }}/4 do verify levou ${decorrido} min contra um orçamento de ${ORCAMENTO_MIN} min."
           echo "::error::Isto NÃO é defeito do seu PR: a suíte unitária cresceu. Em 18/09/2026, \`Unit tests\` já era 10,3 dos 13,2 min do job."
           echo "::error::O conserto é mais uma parte em \`verify-parte\` (matrix + --shard), não subir este número."
           exit 1
