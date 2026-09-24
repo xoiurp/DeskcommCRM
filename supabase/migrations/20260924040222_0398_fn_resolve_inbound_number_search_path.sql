@@ -26,3 +26,9 @@ returns table (
   where number = p_number and is_active
   limit 1;
 $$ language sql security definer stable set search_path = public;
+
+-- `create or replace` preserva os privilégios da 0347, mas o revoke fica escrito de
+-- novo aqui, como em toda migration que (re)cria função em public (regra do item 9
+-- do CLAUDE.md): idempotente, e o pré-voo confere pela forma, não pelo efeito.
+revoke execute on function public.fn_resolve_inbound_number(text) from public, anon;
+grant execute on function public.fn_resolve_inbound_number(text) to service_role;
