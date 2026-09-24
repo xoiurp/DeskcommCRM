@@ -10,6 +10,7 @@ import type { ActionCtx, ActionResultDetail } from "@/lib/automation/types";
 import { assertDestinoResolvidoSeguro } from "@/lib/automation/outbound-ip";
 import { assertSafeOutboundUrl } from "@/lib/automation/outbound-url";
 import { decryptWebhookSecret } from "@/lib/webhooks/secrets";
+import { CABECALHO_DE_ASSINATURA, CABECALHO_DE_EVENTO } from "@/lib/identidade";
 
 const TIMEOUT_MS = 10_000;
 const RETRY_DELAYS_MS = [1_000, 5_000]; // total 3 tentativas
@@ -90,7 +91,7 @@ export async function executeCallWebhook(
   });
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Deskcomm-Event": ctx.event.event_type,
+    [CABECALHO_DE_EVENTO]: ctx.event.event_type,
   };
   // secret_enc (cifrado at-rest, migration 0041) tem precedência; config.secret
   // plaintext fica só como legado pré-retrofit. Decrypt indisponível (chave da
@@ -101,7 +102,7 @@ export async function executeCallWebhook(
     secret = await decryptWebhookSecret(ctx.admin, config.secret_enc);
   }
   if (secret) {
-    headers["X-Deskcomm-Signature"] = createHmac("sha256", secret).update(body).digest("hex");
+    headers[CABECALHO_DE_ASSINATURA] = createHmac("sha256", secret).update(body).digest("hex");
   }
 
   const retryDelaysMs = opts.retryDelaysMs ?? RETRY_DELAYS_MS;

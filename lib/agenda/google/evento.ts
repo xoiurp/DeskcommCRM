@@ -43,6 +43,7 @@
  */
 
 import { instanteDaParede, primeiroInstanteDoDia } from "./tempo";
+import { PREFIXO_DE_PROPRIEDADE, SUFIXO_ICAL_UID as SUFIXO_ICAL_UID_DA_IDENTIDADE } from "@/lib/identidade";
 
 /**
  * O sufixo que marca um evento como nosso, gravado DENTRO do Google.
@@ -57,10 +58,10 @@ import { instanteDaParede, primeiroInstanteDoDia } from "./tempo";
  * dali, todo evento criado antes da troca de marca deixaria de ser reconhecido.
  * O sintoma seria compromisso fantasma ocupando horário, sem erro nenhum.
  */
-export const SUFIXO_ICAL_UID = "deskcomm.app";
+export const SUFIXO_ICAL_UID = SUFIXO_ICAL_UID_DA_IDENTIDADE;
 
 /** Prefixo das `extendedProperties.private` que carregam a identidade do tenant. */
-export const PREFIXO_PROPRIEDADE = "deskcomm";
+export const PREFIXO_PROPRIEDADE = PREFIXO_DE_PROPRIEDADE;
 
 /** Versão do formato das propriedades privadas — permite migrar sem adivinhar. */
 const VERSAO_DA_PROPRIEDADE = "1";

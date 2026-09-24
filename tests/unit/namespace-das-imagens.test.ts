@@ -4,12 +4,15 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { IDENTIDADE_PADRAO, imagensDe, origemDe } from "@/lib/identidade";
+
 import {
   corridaInternaDeFork,
-  DONO_DESTE_REPO,
-  donoConfiavelDoRunner,
-  donoDo,
+  imagensDaMatriz,
+  kitAvaliado,
   NAMESPACE_DESTE_REPO,
+  ORIGEM_DESTE_REPO,
+  WORKFLOW_DE_IMAGENS_DESTE_REPO,
 } from "./_identidade-deste-repo";
 
 /**
@@ -80,8 +83,11 @@ const RAIZ = process.cwd();
 
 const COMUM = fs.readFileSync(path.join(RAIZ, "hostgator-setup-kit/_common.sh"), "utf8");
 const COMPOSE = fs.readFileSync(path.join(RAIZ, "docker-compose.prod.yml"), "utf8");
-const PUBLICA = fs.readFileSync(path.join(RAIZ, ".github/workflows/publish-image.yml"), "utf8");
+const PUBLICA = fs.readFileSync(path.join(RAIZ, WORKFLOW_DE_IMAGENS_DESTE_REPO), "utf8");
 const ENV_EXEMPLO = fs.readFileSync(path.join(RAIZ, ".env.hostgator.example"), "utf8");
+/** O que vale sem identidade.env: os defaults literais de compose e Dockerfiles são ESTES, sempre. */
+const ORIGEM_PADRAO = origemDe(IDENTIDADE_PADRAO);
+const IMAGENS_PADRAO = imagensDe(IDENTIDADE_PADRAO);
 
 
 
@@ -124,13 +130,11 @@ const ENV_EXEMPLO = fs.readFileSync(path.join(RAIZ, ".env.hostgator.example"), "
  * o que fazer, não que ele errou.
  */
 const RECADO_AO_FORK =
-  "Publicando as próprias imagens? Troque o namespace em três lugares, e só neles: " +
-  "IMG_NS em hostgator-setup-kit/_common.sh, o default das três linhas `image:` de " +
-  "docker-compose.prod.yml, e as três *_IMAGE de .env.hostgator.example. Depois " +
-  "atualize NAMESPACE_DESTE_REPO neste arquivo, e a URL do repositório em " +
-  "install.sh, comecar.sh, _common.sh e nos três Dockerfiles (os casos abaixo " +
-  "prendem os seis). Todo o resto deriva de IMG_NS. Se você está lendo isto no CI " +
-  "do seu próprio fork, houve engano nosso: lá este caso não cobra nada.";
+  "Publicando as próprias imagens? Copie identidade.env.example para identidade.env e " +
+  "preencha — e só isso: kit, Dockerfiles, testes e o app derivam de lá (lib/identidade). " +
+  "Nenhum arquivo rastreado carrega o namespace de um fork; se este caso ficou vermelho, " +
+  "IMG_NS em _common.sh deixou de derivar de IDENTIDADE_NAMESPACE. Se você está lendo " +
+  "isto no CI do seu próprio fork, houve engano nosso: lá este caso não cobra nada.";
 
 /*
  * ⚠️ ESTA FRASE JÁ FOI FALSA, e a falsidade custava caro a quem a seguia.
@@ -148,27 +152,24 @@ const RECADO_AO_FORK =
  * terminou.
  */
 
+/** O kit avaliado uma vez: é assim que install/update o leem, e regex não vê derivação. */
+const KIT = kitAvaliado();
+
 function imgNs(): string {
-  const m = COMUM.match(/^IMG_NS="([^"]+)"$/m);
-  // O grupo é obrigatório no padrão, mas `noUncheckedIndexedAccess` não sabe
-  // disso — e a checagem explícita é melhor que um `!`: se um dia o padrão
-  // ganhar um grupo opcional, a mensagem aqui diz o que aconteceu.
-  if (!m?.[1]) throw new Error("não achei a linha IMG_NS= em hostgator-setup-kit/_common.sh");
-  return m[1];
+  return KIT.IMG_NS;
 }
 
-/** Os três repositórios de imagem, na ordem em que `_common.sh` os declara. */
+/**
+ * Os repositórios de imagem que o kit espera NO NOSSO namespace, na ordem em que
+ * `_common.sh` os declara. A de voz sai da lista quando mora noutro dono
+ * (IDENTIDADE_IMAGEM_DE_VOZ): um fork que não vende telefonia usa a imagem
+ * pública do produto-mãe, e ela não está na matriz dele por decisão, não por esquecimento.
+ */
 function reposDoKit(): string[] {
-  return ["IMG_APP", "IMG_WORKER", "IMG_SCHEDULER", "IMG_VOICE_AGENT"].map((chave) => {
-    const m = COMUM.match(new RegExp(`^${chave}="\\$\\{IMG_NS\\}/([^"]+)"$`, "m"));
-    if (!m?.[1]) {
-      throw new Error(
-        `${chave} não é mais derivada de \${IMG_NS} em _common.sh. ` +
-          "Se ela passou a repetir o namespace, a fonte única deixou de existir.",
-      );
-    }
-    return m[1];
-  });
+  const prefixo = `${KIT.IMG_NS}/`;
+  return [KIT.IMG_APP, KIT.IMG_WORKER, KIT.IMG_SCHEDULER, KIT.IMG_VOICE_AGENT]
+    .filter((ref) => ref.startsWith(prefixo))
+    .map((ref) => ref.slice(prefixo.length));
 }
 
 describe("o namespace das imagens tem uma âncora, e uma só", () => {
@@ -184,6 +185,20 @@ describe("o namespace das imagens tem uma âncora, e uma só", () => {
     expect(imgNs(), RECADO_AO_FORK).toBe(NAMESPACE_DESTE_REPO);
   });
 
+  it("IMG_NS deriva de IDENTIDADE_NAMESPACE, com o padrão do produto-mãe — nunca de um literal de fork", () => {
+    // É o que faz identidade.env bastar: o literal que sobra em _common.sh é o do
+    // produto-mãe, igual ao de lib/identidade, e um fork não edita nenhum dos dois.
+    expect(COMUM).toContain(`IMG_NS="\${IDENTIDADE_NAMESPACE:-${IDENTIDADE_PADRAO.namespace}}"`);
+    for (const [chave, nome] of [
+      ["IMG_APP", IMAGENS_PADRAO.app],
+      ["IMG_WORKER", IMAGENS_PADRAO.worker],
+      ["IMG_SCHEDULER", IMAGENS_PADRAO.scheduler],
+      ["IMG_VOICE_AGENT", IMAGENS_PADRAO.voz],
+    ]) {
+      expect(COMUM).toContain(`${chave}="\${IMG_NS}/${nome}"`);
+    }
+  });
+
   it("IMG_NS tem a forma <registry>/<dono> — a única que o GHCR publica", () => {
     // O workflow publica em `${REGISTRY}/${github.repository_owner}/${nome}`:
     // exatamente dois segmentos antes do nome da imagem. Um IMG_NS com três
@@ -193,38 +208,34 @@ describe("o namespace das imagens tem uma âncora, e uma só", () => {
   });
 });
 
-describe("o default do compose diz o mesmo que o kit", () => {
-  // Por que isto pega o que a âncora sozinha não pega: `docker-compose.prod.yml`
-  // é a SEGUNDA declaração independente de onde as imagens moram, e a única que
-  // vale quando `APP_IMAGE` não está no `.env`. YAML não deriva de shell, então
-  // as duas só andam juntas se alguém as comparar — é este caso.
-  // Os nomes vêm de `reposDoKit()`, não de literais aqui: assim o compose e o
-  // `.env` de exemplo são conferidos contra IMG_APP/IMG_WORKER/IMG_SCHEDULER, e
-  // renomear uma imagem só no `_common.sh` fica vermelho. Com os nomes fixos
-  // neste arquivo, essa renomeação passaria — o teste concordaria com o compose
-  // sobre um nome que o kit já não usa.
-  //
-  // A leitura acontece DENTRO de cada `it`, não no corpo do describe: lá, um
-  // `_common.sh` fora de forma derrubava a coleta do arquivo inteiro, e o que
-  // chegava ao resumo era "no tests" em vez do caso que reprovou.
+describe("o default do compose é o do produto-mãe; o template do .env não tem imagem nenhuma", () => {
+  // `docker-compose.prod.yml` é a SEGUNDA declaração independente de onde as
+  // imagens moram, e a única que vale quando `APP_IMAGE` não está no `.env`. YAML
+  // não lê identidade.env, então o default dele é o PADRÃO (o do produto-mãe) por
+  // construção, e é contra o padrão que ele é conferido — não contra o kit
+  // avaliado, que num fork diz outra coisa. A instalação nunca depende desse
+  // default: `gravar_imagens` (kit) e o runbook gravam as três *_IMAGE da
+  // identidade no `.env`, e `/api/v1/health` expõe o slug para provar qual
+  // imagem está no ar.
   const CHAVES = ["APP_IMAGE", "WORKER_IMAGE", "SCHEDULER_IMAGE"] as const;
+  const NOMES_PADRAO = [IMAGENS_PADRAO.app, IMAGENS_PADRAO.worker, IMAGENS_PADRAO.scheduler];
 
   CHAVES.forEach((chave, i) => {
-    it(`o default de ${chave} usa o namespace de IMG_NS`, () => {
+    it(`o default de ${chave} é a imagem do produto-mãe, em :stable`, () => {
       const m = COMPOSE.match(new RegExp(`^\\s*image: \\$\\{${chave}:-([^}]+)\\}`, "m"));
       expect(m, `não achei a linha \`image: \${${chave}:-…}\` em docker-compose.prod.yml`)
         .not.toBeNull();
-      expect(m![1]).toBe(`${imgNs()}/${reposDoKit()[i]}:stable`);
+      expect(m![1]).toBe(`${IDENTIDADE_PADRAO.namespace}/${NOMES_PADRAO[i]}:stable`);
     });
 
     // `.env.hostgator.example` é DADO — um template que o operador copia. Não há
-    // de onde derivar dentro de um arquivo de env, então ele é a última cópia
-    // autorizada do literal, e existe este caso para que ela seja uma cópia
-    // CONFERIDA em vez de uma afirmação solta.
-    it(`o piso de ${chave} no .env de exemplo usa o namespace de IMG_NS`, () => {
-      const m = ENV_EXEMPLO.match(new RegExp(`^${chave}=(\\S+)`, "m"));
+    // de onde derivar dentro de um arquivo de env, então a linha fica VAZIA: quem
+    // a preenche é o install.sh (`gravar_imagens`), a partir da identidade. Um
+    // template com imagem escrita à mão é o que faz um fork instalar o produto de outro.
+    it(`${chave} no .env de exemplo existe e está vazio`, () => {
+      const m = ENV_EXEMPLO.match(new RegExp(`^${chave}=(.*)$`, "m"));
       expect(m, `não achei \`${chave}=\` em .env.hostgator.example`).not.toBeNull();
-      expect(m![1]).toBe(`${imgNs()}/${reposDoKit()[i]}:stable`);
+      expect((m![1] ?? "").trim()).toBe("");
     });
   });
 });
@@ -235,17 +246,21 @@ describe("o kit aponta para o que o CI realmente publica", () => {
     // deferência lá de cima. Quem decide se a corrida é de um fork compara o dono
     // do runner com o dono de `NAMESPACE_DESTE_REPO` — logo, um PR que editasse
     // SÓ aquele literal faria a âncora se calar contra o upstream. Derivando, o
-    // mesmo commit fica vermelho AQUI, contra seis arquivos que ele não tocou.
-    // Medido nos dois sentidos, com a URL fixa e com ela derivada (ver cabeçalho).
-    const repo = `https://github.com/${DONO_DESTE_REPO}/DeskcommCRM`;
+    // mesmo commit fica vermelho AQUI, contra os arquivos que ele não tocou.
+    //
+    // install.sh e comecar.sh rodam ANTES de existir clone (e identidade.env), então o
+    // default deles é o do produto-mãe; um fork passa REPO_URL. O kit, depois do clone,
+    // e os Dockerfiles derivam (REPO_ORIGEM; build-arg IDENTIDADE_ORIGEM), com o mesmo
+    // padrão quando nada vem de fora.
     for (const script of ["install.sh", "comecar.sh"]) {
       const texto = fs.readFileSync(path.join(RAIZ, "hostgator-setup-kit", script), "utf8");
-      expect(texto).toContain(`REPO_URL="\${REPO_URL:-${repo}.git}"`);
+      expect(texto).toContain(`REPO_URL="\${REPO_URL:-${ORIGEM_PADRAO}.git}"`);
     }
-    expect(COMUM).toContain(`local url="\${1:-${repo}.git}" ref`);
+    expect(COMUM).toContain('local url="${1:-${REPO_ORIGEM}.git}" ref');
+    expect(KIT.REPO_ORIGEM).toBe(ORIGEM_DESTE_REPO);
     for (const dockerfile of ["Dockerfile", "Dockerfile.worker", "Dockerfile.scheduler"]) {
       expect(fs.readFileSync(path.join(RAIZ, dockerfile), "utf8")).toContain(
-        `org.opencontainers.image.source="${repo}"`,
+        `org.opencontainers.image.source="\${IDENTIDADE_ORIGEM:-${ORIGEM_PADRAO}}"`,
       );
     }
   });
@@ -294,7 +309,7 @@ describe("o kit aponta para o que o CI realmente publica", () => {
 
   it("o registry do kit é o mesmo do workflow de publicação", () => {
     const m = PUBLICA.match(/^\s*REGISTRY:\s*(\S+)$/m);
-    expect(m, "não achei `REGISTRY:` em .github/workflows/publish-image.yml").not.toBeNull();
+    expect(m, `não achei REGISTRY: em ${WORKFLOW_DE_IMAGENS_DESTE_REPO}`).not.toBeNull();
     expect(imgNs().split("/")[0]).toBe(m![1]);
   });
 
@@ -312,9 +327,9 @@ describe("o kit aponta para o que o CI realmente publica", () => {
     // IGUALDADE entre as duas listas é; prendê-lo em 3 fez este caso reprovar a
     // imagem nova em vez de reprovar a divergência. Fica um piso, que é o que o
     // caso precisa para não passar sobre lista vazia.
-    const naMatriz = [...PUBLICA.matchAll(/^\s{10}- name: (\S+)$/gm)].map((m) => m[1]);
-    expect(naMatriz.length, "a matriz de publish-image.yml veio vazia — o leitor cegou").toBeGreaterThanOrEqual(3);
-    expect([...naMatriz].sort()).toEqual([...reposDoKit()].sort());
+    const naMatriz = imagensDaMatriz(PUBLICA);
+    expect(naMatriz.length, `a matriz de ${WORKFLOW_DE_IMAGENS_DESTE_REPO} veio vazia — o leitor cegou`).toBeGreaterThanOrEqual(3);
+    expect(naMatriz).toEqual([...reposDoKit()].sort());
   });
 });
 
@@ -354,6 +369,12 @@ describe("catraca: ninguém mais repete o namespace", () => {
     // de `_identidade-deste-repo.ts`). Duplicar o literal nos dois seria o
     // anti-pattern nº 2 do CLAUDE.md e garantiria que voltassem a divergir.
     "tests/unit/_identidade-deste-repo.ts",
+    // A CASA DO LITERAL desde a 8.1 do FORK.md: o padrão do produto-mãe mora em
+    // lib/identidade; o valor de um fork mora em identidade.env (não rastreado) e
+    // o exemplo rastreado repete o padrão para ser copiado.
+    "lib/identidade.ts",
+    "identidade.env",
+    "identidade.env.example",
     // Este arquivo continua permitido porque duas PROSAS citam o literal (a
     // história dos 31 lugares e o caso da URL do token). Prosa que cita o valor
     // é legítima; asserção que o reescreve à mão não é.
@@ -454,7 +475,9 @@ describe("catraca: ninguém mais repete o namespace", () => {
     // alguém reescrever uma frase para o controle ficar vermelho sem nada ter
     // acontecido, e, pior, ele deixara de provar que a varredura alcança a
     // âncora de verdade. Medido: 2 ocorrências aqui, as duas em comentário.
-    const alvo = "tests/unit/_identidade-deste-repo.ts";
+    // Desde a 8.1 do FORK.md o literal mora em lib/identidade.ts (o padrão) ou em
+    // identidade.env (o valor de um fork, quando o arquivo existe na máquina).
+    const alvo = fs.existsSync(path.join(RAIZ, "identidade.env")) ? "identidade.env" : "lib/identidade.ts";
     const saida = execFileSync("grep", ["-rlF", NAMESPACE_DESTE_REPO, alvo], {
       cwd: RAIZ,
       encoding: "utf8",

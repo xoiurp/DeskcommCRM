@@ -7,8 +7,9 @@ import {
   verifyImpersonateCookieEdge,
   IMPERSONATE_COOKIE_NAME_EDGE,
 } from "@/lib/impersonate/cookie-edge";
+import { COOKIE_DE_SESSAO } from "@/lib/identidade";
 
-const COOKIE_NAME = "sb-deskcomm-auth";
+const COOKIE_NAME = COOKIE_DE_SESSAO;
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: request.headers } });

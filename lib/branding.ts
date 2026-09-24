@@ -16,7 +16,9 @@
  * runtime em vez de lida do bundle.
  */
 
-export const DEFAULT_APP_NAME = "DeskcommCRM";
+import { IDENTIDADE } from "@/lib/identidade";
+
+export const DEFAULT_APP_NAME = IDENTIDADE.marca;
 
 export type Branding = {
   /** Nome exibido na interface e nos títulos de página. */

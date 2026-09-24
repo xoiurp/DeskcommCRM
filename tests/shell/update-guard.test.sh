@@ -46,7 +46,8 @@ export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t.t GIT_COMMITTER_NAME=t GIT_COMMITT
 # `tests/unit/namespace-das-imagens.test.ts`, que assere o literal UMA vez e
 # confere que o compose, o `.env` de exemplo e o workflow de publicação dizem o
 # mesmo. Se você veio parar aqui procurando a guarda do namespace, é lá.
-NS="$(sed -n 's/^IMG_NS="\(.*\)"$/\1/p' "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../hostgator-setup-kit" && pwd)/_common.sh" | head -1)"
+# Avaliado, não lido por regex: desde a 8.1 do FORK.md, IMG_NS deriva de identidade.env (ou do padrão).
+NS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && bash -c '. hostgator-setup-kit/_common.sh; printf %s "$IMG_NS"')"
 [ -n "$NS" ] || { echo "não consegui ler IMG_NS de _common.sh"; exit 1; }
 # Exportado porque o dublê de `docker` (escrito mais abaixo num heredoc quoted)
 # resolve $NS em tempo de execução, já dentro de outro processo.

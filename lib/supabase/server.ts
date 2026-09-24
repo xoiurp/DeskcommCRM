@@ -9,6 +9,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookieSecure } from "@/lib/supabase/cookie-secure";
 import { cookies } from "next/headers";
 import { env } from "@/lib/env";
+import { COOKIE_DE_SESSAO } from "@/lib/identidade";
 
 /**
  * Tudo o que vale para TODO cookie deste cliente, menos o `sameSite` — que é
@@ -24,7 +25,7 @@ import { env } from "@/lib/env";
 function opcoesDeCookie(sameSite: "strict" | "lax") {
   // D-01.01: cookie name canônico alinhado ao middleware.
   return {
-    name: "sb-deskcomm-auth",
+    name: COOKIE_DE_SESSAO,
     sameSite,
     httpOnly: true,
     secure: cookieSecure(),

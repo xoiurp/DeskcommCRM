@@ -1031,25 +1031,46 @@ ler_rodada_do_banco() {
     "$([ "$disputa" = "1" ] && printf true || printf false)" "$retentativas" "$passada"
 }
 
-# ── As três imagens que NÓS publicamos ───────────────────────────────────────
-# O namespace é constante e literal de propósito: ele está gravado no .env de
-# toda instalação viva, e derivá-lo de variável faria o kit antigo (que já está
-# no disco do cliente) e o novo montarem strings diferentes.
+# ── As imagens que NÓS publicamos ────────────────────────────────────────────
+# Identidade do repositório (docs/FORK.md, 8.1): `identidade.env` na raiz do
+# repositório, quando existir; o padrão do produto-mãe quando não. Um fork
+# preenche o arquivo e não edita estas linhas: o valor não é literal aqui de
+# propósito, porque cada literal de identidade em arquivo rastreado é um conflito
+# a cada merge. `IDENTIDADE_OBRIGATORIA` (rastreado só em repositório de cliente)
+# faz a ausência do arquivo ser erro, não silêncio.
 #
-# Esta linha é a ÚNICA fonte do namespace para tudo que executa — os testes do
-# kit a leem em vez de repetir a string. Quem a confere é
-# `tests/unit/namespace-das-imagens.test.ts`, que assere este valor e cobra que
-# `docker-compose.prod.yml`, `.env.hostgator.example` e a matriz de
-# `publish-image.yml` digam o mesmo. Se você é um fork, é lá que está a lista do
-# que trocar junto — e, desde 18/09/2026, o CI do SEU fork não cobra este valor:
-# a asserção só vale quando o dono do runner é o dono deste repositório.
-IMG_NS="ghcr.io/melgarafael"
-IMG_APP="${IMG_NS}/deskcommcrm"
-IMG_WORKER="${IMG_NS}/deskcomm-worker"
-IMG_SCHEDULER="${IMG_NS}/deskcomm-scheduler"
-# Telefonia por SIP (#677): só roda com `telefonia` em COMPOSE_PROFILES, mas é
-# imagem NOSSA e segue a mesma versão das outras três (gravar_imagens).
-IMG_VOICE_AGENT="${IMG_NS}/deskcomm-voice-agent"
+# Estas linhas são a ÚNICA fonte para tudo que executa — os testes do kit as
+# AVALIAM (`source _common.sh`) em vez de repetir a string. Quem confere é
+# `tests/unit/namespace-das-imagens.test.ts`, contra `lib/identidade.ts` e a
+# matriz do workflow de imagens deste repositório. O namespace está gravado no
+# .env de toda instalação viva: a identidade se fixa antes do primeiro install.
+_RAIZ_DA_IDENTIDADE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
+if [ -f "${_RAIZ_DA_IDENTIDADE}/identidade.env" ]; then
+  # shellcheck source=/dev/null
+  . "${_RAIZ_DA_IDENTIDADE}/identidade.env"
+elif [ -f "${_RAIZ_DA_IDENTIDADE}/IDENTIDADE_OBRIGATORIA" ]; then
+  echo "identidade.env ausente em ${_RAIZ_DA_IDENTIDADE} (IDENTIDADE_OBRIGATORIA presente): copie identidade.env.example e preencha" >&2
+  exit 1
+fi
+IMG_NS="${IDENTIDADE_NAMESPACE:-ghcr.io/melgarafael}"
+if [ -n "${IDENTIDADE_IMAGENS:-}" ]; then
+  IMG_APP="${IMG_NS}/${IDENTIDADE_IMAGENS}-app"
+  IMG_WORKER="${IMG_NS}/${IDENTIDADE_IMAGENS}-worker"
+  IMG_SCHEDULER="${IMG_NS}/${IDENTIDADE_IMAGENS}-scheduler"
+  IMG_VOICE_AGENT="${IMG_NS}/${IDENTIDADE_IMAGENS}-voice-agent"
+else
+  IMG_APP="${IMG_NS}/deskcommcrm"
+  IMG_WORKER="${IMG_NS}/deskcomm-worker"
+  IMG_SCHEDULER="${IMG_NS}/deskcomm-scheduler"
+  IMG_VOICE_AGENT="${IMG_NS}/deskcomm-voice-agent"
+fi
+# Telefonia por SIP (#677): só roda com `telefonia` em COMPOSE_PROFILES, mas segue
+# a mesma versão das outras três (gravar_imagens). Um fork que não publica a imagem
+# de voz aponta IDENTIDADE_IMAGEM_DE_VOZ para a pública do produto-mãe (referência
+# completa: registro/dono/nome), e `trio_publicado` a confere lá.
+IMG_VOICE_AGENT="${IDENTIDADE_IMAGEM_DE_VOZ:-$IMG_VOICE_AGENT}"
+# O repositório de origem: o kit consulta as tags dele, e os labels das imagens derivam do mesmo valor.
+REPO_ORIGEM="https://github.com/${IMG_NS#*/}/${IDENTIDADE_REPO:-DeskcommCRM}"
 
 # A última versão publicada (ex.: "1.2.1"), ou vazio se não deu para saber.
 #
@@ -1063,7 +1084,7 @@ IMG_VOICE_AGENT="${IMG_NS}/deskcomm-voice-agent"
 # alguém porque não deu para resolver um número de versão seria trocar um
 # problema de previsibilidade por um de disponibilidade.
 ultima_versao_publicada() {
-  local url="${1:-https://github.com/melgarafael/DeskcommCRM.git}" ref
+  local url="${1:-${REPO_ORIGEM}.git}" ref
   command -v git >/dev/null 2>&1 || return 0
   # `grep -v -- -` descarta PRERELEASE (v1.11.0-rc1, v1.1.1-jmpo.1 — esta última
   # existe de verdade neste repo). O `--sort=-v:refname` do git põe o prerelease
@@ -1095,8 +1116,11 @@ ultima_versao_publicada() {
 # `ghcr.io/token?scope=repository:melgarafael/`.
 ghcr_status() {
   local img="$1" tag="$2" tok registry owner
-  registry="${IMG_NS%%/*}"
-  owner="${IMG_NS#*/}"
+  case "$img" in
+    # Referência completa (registro/dono/nome): a imagem de voz de um fork pode morar noutro dono.
+    */*/*) registry="${img%%/*}"; img="${img#*/}"; owner="${img%%/*}"; img="${img#*/}" ;;
+    *)     registry="${IMG_NS%%/*}"; owner="${IMG_NS#*/}" ;;
+  esac
   tok="$(curl -fsS --max-time 6 \
           "https://${registry}/token?scope=repository:${owner}/${img}:pull&service=${registry}" 2>/dev/null \
         | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || true
@@ -1116,13 +1140,12 @@ ghcr_status() {
 # impossíveis, e o kit as construiria na VPS **em silêncio**, do topo da main:
 # app de uma release + worker/scheduler de outro código. Exatamente a mistura de
 # versões que a doutrina existe para proibir, no caminho de primeira impressão.
-# O nome ficou de quando eram três; hoje são quatro, e a lista acompanha a
-# matriz de publish-image.yml — quem cobra é
-# tests/unit/listas-de-imagens-seguem-matriz.test.ts. Renomear a função
-# quebraria o leitor daquele teste sem ganhar nada: o que importa é a lista.
+# O nome ficou de quando eram três; hoje são quatro, e a lista são as referências
+# da identidade (acima), que acompanham a matriz do workflow de imagens — quem
+# cobra é tests/unit/listas-de-imagens-seguem-matriz.test.ts.
 trio_publicado() {
   local tag="$1" i
-  for i in deskcommcrm deskcomm-worker deskcomm-scheduler deskcomm-voice-agent; do
+  for i in "$IMG_APP" "$IMG_WORKER" "$IMG_SCHEDULER" "$IMG_VOICE_AGENT"; do
     [ "$(ghcr_status "$i" "$tag")" = "200" ] || return 1
   done
   return 0

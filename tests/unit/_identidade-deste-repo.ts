@@ -34,6 +34,9 @@
  * anti-pattern nº 2 do CLAUDE.md (duplicação sem fonte da verdade declarada), e
  * garantiria que eles voltassem a divergir.
  */
+import { execFileSync } from "node:child_process";
+
+import { IDENTIDADE, IMAGENS, ORIGEM } from "@/lib/identidade";
 
 /**
  * O valor literal que ESTE repositório publica. A âncora da identidade.
@@ -46,7 +49,55 @@
  * reprova lá. Não remova essa derivação pensando que é redundante — ela é o que
  * torna a âncora não-falsificável de dentro do diff.
  */
-export const NAMESPACE_DESTE_REPO = "ghcr.io/melgarafael";
+export const NAMESPACE_DESTE_REPO = IDENTIDADE.namespace;
+
+/**
+ * O resto da identidade, no mesmo lugar e pelo mesmo motivo. Desde a 8.1 do FORK.md
+ * nada aqui é literal: tudo vem de `lib/identidade` (identidade.env ou o padrão do
+ * produto-mãe). As catracas de marca e de imagens leem daqui; um fork preenche o
+ * arquivo e não toca em teste nenhum.
+ */
+export const NOME_DESTE_REPO = IDENTIDADE.repo;
+export const MARCA_DESTE_REPO = IDENTIDADE.marca;
+export const WORKFLOW_DE_IMAGENS_DESTE_REPO = IDENTIDADE.workflowDeImagens;
+export const ORIGEM_DESTE_REPO = ORIGEM;
+export const IMAGENS_DESTE_REPO = IMAGENS;
+
+/**
+ * O kit AVALIADO (`source _common.sh`), que é como install/update o leem. Ler o
+ * literal por regex deixou de valer quando IMG_NS passou a derivar de identidade.env.
+ */
+export function kitAvaliado(): Record<
+  "IMG_NS" | "IMG_APP" | "IMG_WORKER" | "IMG_SCHEDULER" | "IMG_VOICE_AGENT" | "REPO_ORIGEM",
+  string
+> {
+  const saida = execFileSync(
+    "bash",
+    [
+      "-c",
+      'source hostgator-setup-kit/_common.sh; printf "%s\\n" "$IMG_NS" "$IMG_APP" "$IMG_WORKER" "$IMG_SCHEDULER" "$IMG_VOICE_AGENT" "$REPO_ORIGEM"',
+    ],
+    { cwd: process.cwd(), encoding: "utf8" },
+  );
+  const [IMG_NS, IMG_APP, IMG_WORKER, IMG_SCHEDULER, IMG_VOICE_AGENT, REPO_ORIGEM] = saida
+    .trim()
+    .split("\n");
+  if (!IMG_NS || !IMG_APP || !IMG_WORKER || !IMG_SCHEDULER || !IMG_VOICE_AGENT || !REPO_ORIGEM) {
+    throw new Error(`não consegui avaliar as imagens em hostgator-setup-kit/_common.sh: ${saida}`);
+  }
+  return { IMG_NS, IMG_APP, IMG_WORKER, IMG_SCHEDULER, IMG_VOICE_AGENT, REPO_ORIGEM };
+}
+
+/**
+ * Os nomes de imagem na matriz de um workflow de publicação. Num workflow de fork o nome
+ * vem das variáveis do repositório (`${{ vars.IDENTIDADE_IMAGENS }}-app`), e aqui ele vale
+ * o prefixo da identidade, que é o que o CI dele vai resolver.
+ */
+export function imagensDaMatriz(yml: string): string[] {
+  return [...yml.matchAll(/^\s{10}- name: (.+?)\s*$/gm)]
+    .map((m) => m[1]!.replace(/\$\{\{\s*vars\.IDENTIDADE_IMAGENS\s*\}\}/g, IDENTIDADE.imagens))
+    .sort();
+}
 
 /**
  * O dono de uma referência `<registry>/<dono>`.

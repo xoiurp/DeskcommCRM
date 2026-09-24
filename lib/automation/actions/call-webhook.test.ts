@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import { describe, it, expect, afterEach } from "vitest";
 import { executeCallWebhook } from "@/lib/automation/actions/call-webhook";
 import type { ActionCtx } from "@/lib/automation/types";
+import { CABECALHO_DE_ASSINATURA, CABECALHO_DE_EVENTO } from "@/lib/identidade";
 
 function baseCtx(overrides: Partial<ActionCtx["event"]> = {}): ActionCtx {
   return {
@@ -69,8 +70,8 @@ describe("executeCallWebhook", () => {
     expect(result.status).toBe("success");
     expect(result.detail?.response_status).toBe(200);
     expect(received).toBeDefined();
-    expect(received!.headers["x-deskcomm-event"]).toBe("lead.created");
-    expect(received!.headers["x-deskcomm-signature"]).toBeUndefined();
+    expect(received!.headers[CABECALHO_DE_EVENTO.toLowerCase()]).toBe("lead.created");
+    expect(received!.headers[CABECALHO_DE_ASSINATURA.toLowerCase()]).toBeUndefined();
 
     const parsedBody = JSON.parse(received!.body);
     expect(parsedBody.event).toBe("lead.created");
@@ -103,7 +104,7 @@ describe("executeCallWebhook", () => {
 
     expect(result.status).toBe("success");
     const expectedSig = createHmac("sha256", "s3cr3t").update(received!.body).digest("hex");
-    expect(received!.headers["x-deskcomm-signature"]).toBe(expectedSig);
+    expect(received!.headers[CABECALHO_DE_ASSINATURA.toLowerCase()]).toBe(expectedSig);
 
     await close();
   });

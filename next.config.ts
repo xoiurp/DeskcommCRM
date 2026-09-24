@@ -1,5 +1,6 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
+import { carregarIdentidade } from "./lib/identidade/arquivo";
 
 /** Performance budget (EPIC-12 §S-12.05):
  *  - LCP < 2.5s p75
@@ -7,7 +8,12 @@ import type { NextConfig } from "next";
  *  - INP < 200ms p75
  *  - Initial bundle /app/inbox < 250KB gzipped
  */
+// Identidade do repositório (docs/FORK.md, 8.1): identidade.env ou IDENTIDADE_* do ambiente,
+// queimados no bundle como NEXT_PUBLIC_*. Sem nada, lib/identidade cai no padrão do produto-mãe.
+const identidade = carregarIdentidade(process.cwd());
+
 const nextConfig: NextConfig = {
+  env: identidade,
   // Self-host: gera .next/standalone pro container Docker (node server.js) — é
   // o que o estágio `runner` do Dockerfile copia, então é o modo de build deste
   // repositório. O ramo de `process.env.VERCEL` é resíduo defensivo, não um modo

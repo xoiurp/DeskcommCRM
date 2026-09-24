@@ -26,6 +26,14 @@ ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-anon-key
 ARG NEXT_PUBLIC_APP_URL=https://placeholder.invalid
 ARG NEXT_PUBLIC_ADMIN_URL=https://placeholder.invalid
+# Identidade do repositório (docs/FORK.md, 8.1): vazio = padrão do produto-mãe
+# (lib/identidade). O workflow de imagens passa os valores das variáveis do
+# repositório; um build local lê identidade.env pelo next.config.ts.
+ARG IDENTIDADE_NAMESPACE=
+ARG IDENTIDADE_REPO=
+ARG IDENTIDADE_MARCA=
+ARG IDENTIDADE_SLUG=
+ARG IDENTIDADE_IMAGENS=
 # O build do Next é faminto: o heap default do Node (~2GB) estoura. NODE_OPTIONS
 # eleva pra 4GB. Isso é custo de QUEM BUILDA — o CI —, não de quem instala: o
 # caminho normal do self-hoster é `docker compose pull`, e o install.sh não
@@ -35,6 +43,11 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
     NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL \
+    IDENTIDADE_NAMESPACE=$IDENTIDADE_NAMESPACE \
+    IDENTIDADE_REPO=$IDENTIDADE_REPO \
+    IDENTIDADE_MARCA=$IDENTIDADE_MARCA \
+    IDENTIDADE_SLUG=$IDENTIDADE_SLUG \
+    IDENTIDADE_IMAGENS=$IDENTIDADE_IMAGENS \
     NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS=--max-old-space-size=4096
@@ -86,9 +99,11 @@ WORKDIR /app
 # OCI via docker/metadata-action; estes aqui são defesa em profundidade — valem
 # para qualquer build, inclusive o local de docker-compose.build.yml, que não
 # passa pelo metadata-action e sem isto sairia sem origem nenhuma.
-LABEL org.opencontainers.image.source="https://github.com/melgarafael/DeskcommCRM" \
+ARG IDENTIDADE_ORIGEM
+ARG IDENTIDADE_MARCA
+LABEL org.opencontainers.image.source="${IDENTIDADE_ORIGEM:-https://github.com/melgarafael/DeskcommCRM}" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.title="DeskcommCRM"
+      org.opencontainers.image.title="${IDENTIDADE_MARCA:-DeskcommCRM}"
 
 # ⚠️ NADA de ARG de versão acima das camadas caras deste estágio. No BuildKit a
 # própria INSTRUÇÃO `ARG` entra na chave de cache das instruções seguintes —

@@ -20,6 +20,9 @@ build/
 !.env.example
 !.env.hostgator.example
 !.env.voip.example
+# Identidade do repositório (docs/FORK.md, 8.1): o valor fica fora do git; só o exemplo entra.
+identidade.env
+!identidade.env.example
 
 # Asterisk — credenciais reais do trunk SIP/ARI (módulo VoIP, migration 0231),
 # nunca comitar. Templates ficam em asterisk/*.conf.example.

@@ -41,6 +41,9 @@ for (const envFile of [".env", ".env.local"]) {
   }
 }
 
+// identidade.env (docs/FORK.md, 8.1) antes de qualquer módulo importar @/lib/identidade.
+carregarIdentidade(process.cwd());
+
 /**
  * Placeholders para as vars que `lib/env.ts` exige na IMPORTAÇÃO.
  *
@@ -109,6 +112,7 @@ globalThis.fetch = async (entrada, init) => {
 };
 
 import "@testing-library/jest-dom/vitest";
+import { carregarIdentidade } from "../../lib/identidade/arquivo";
 
 // Node 25+ expõe `localStorage`/`sessionStorage` nativos que não servem sem
 // `--localstorage-file` (no 26.8 valem `undefined`; no 25.4 são um objeto sem `.clear`),

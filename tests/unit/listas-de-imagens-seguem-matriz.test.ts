@@ -3,48 +3,38 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { IDENTIDADE_PADRAO, imagensDe } from "@/lib/identidade";
+
+import { imagensDaMatriz, kitAvaliado, WORKFLOW_DE_IMAGENS_DESTE_REPO } from "./_identidade-deste-repo";
+
+/**
+ * Duas fontes de verdade, e é de propósito (docs/FORK.md, 8.1):
+ *
+ *   - o workflow de imagens DESTE repositório (`WORKFLOW_DE_IMAGENS_DESTE_REPO`, da
+ *     identidade) é o que o kit tem de conferir antes de pinar — `trio_publicado`
+ *     avalia as referências de `_common.sh`, que derivam de identidade.env;
+ *   - `publish-image.yml` e `release.yml` são os do produto-mãe. As guardas de tag e
+ *     de packaging leem os nomes históricos deles, e continuam valendo tal qual num
+ *     fork, porque são sobre os workflows do produto-mãe, não sobre os do fork.
+ */
 const RAIZ = process.cwd();
-const publish = readFileSync(join(RAIZ, ".github/workflows/publish-image.yml"), "utf8");
-const common = readFileSync(join(RAIZ, "hostgator-setup-kit/_common.sh"), "utf8");
+const publishDoProdutoMae = readFileSync(join(RAIZ, IDENTIDADE_PADRAO.workflowDeImagens), "utf8");
+const publishDesteRepo = readFileSync(join(RAIZ, WORKFLOW_DE_IMAGENS_DESTE_REPO), "utf8");
 const tagSoNasceDaMain = readFileSync(join(RAIZ, "tests/unit/tag-so-nasce-da-main.test.ts"), "utf8");
 const packaging = readFileSync(join(RAIZ, "tests/unit/packaging-artefato-do-cliente.test.ts"), "utf8");
-
-function job(yml: string, nome: string): string {
-  const linhas = yml.split("\n");
-  const iJobs = linhas.findIndex((linha) => /^jobs:\s*$/.test(linha));
-  if (iJobs === -1) return "";
-  const inicio = linhas.findIndex((linha, i) => i > iJobs && linha === `  ${nome}:`);
-  if (inicio === -1) return "";
-  const fim = linhas.findIndex(
-    (linha, i) => i > inicio && /^ {2}[A-Za-z0-9_-]+:\s*$/.test(linha),
-  );
-  return linhas.slice(inicio, fim === -1 ? undefined : fim).join("\n");
-}
-
-function imagensDaMatriz(yml = publish): string[] {
-  const corpo = job(yml, "build-and-push");
-  const bloco = /matrix:\s*\n\s+include:\s*\n([\s\S]*?)(?=\n {4}steps:)/.exec(corpo)?.[1] ?? "";
-  return [...bloco.matchAll(/^\s*-\s+name:\s*([A-Za-z0-9._-]+)\s*$/gm)]
-    .map((match) => match[1]!)
-    .sort();
-}
-
-function palavrasDaLista(texto: string): string[] {
-  return texto
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .sort();
-}
 
 function stringsDoArray(texto: string): string[] {
   return [...texto.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]!).sort();
 }
 
+/** As referências do kit no NOSSO namespace, sem ele. A de voz sai quando mora noutro dono. */
 function imagensDoKit(): string[] {
-  const corpo = /trio_publicado\(\)\s*\{([\s\S]*?)\n\}/.exec(common)?.[1] ?? "";
-  const lista = /for\s+i\s+in\s+([^;]+);\s*do/.exec(corpo)?.[1] ?? "";
-  return palavrasDaLista(lista);
+  const kit = kitAvaliado();
+  const prefixo = `${kit.IMG_NS}/`;
+  return [kit.IMG_APP, kit.IMG_WORKER, kit.IMG_SCHEDULER, kit.IMG_VOICE_AGENT]
+    .filter((ref) => ref.startsWith(prefixo))
+    .map((ref) => ref.slice(prefixo.length))
+    .sort();
 }
 
 function imagensDoTesteDaTag(): string[] {
@@ -57,33 +47,39 @@ function imagensDoTesteDePackaging(): string[] {
   return stringsDoArray(lista);
 }
 
-const IMAGENS = imagensDaMatriz();
+const IMAGENS_DESTE_REPO = imagensDaMatriz(publishDesteRepo);
+const IMAGENS_DO_PRODUTO_MAE = imagensDaMatriz(publishDoProdutoMae);
 
 describe("listas de imagens Docker seguem a matriz de publicação", () => {
-  it("o instrumento está vivo e encontra a fonte de verdade", () => {
-    expect(job(publish, "build-and-push"), "o job build-and-push sumiu").not.toBe("");
-    expect(IMAGENS.length, "não consegui extrair imagens da matriz build-and-push").toBeGreaterThan(0);
-    expect(new Set(IMAGENS).size, "a matriz contém nomes duplicados").toBe(IMAGENS.length);
+  it("o instrumento está vivo e encontra as duas fontes de verdade", () => {
+    for (const [nome, lista] of [
+      [WORKFLOW_DE_IMAGENS_DESTE_REPO, IMAGENS_DESTE_REPO],
+      [IDENTIDADE_PADRAO.workflowDeImagens, IMAGENS_DO_PRODUTO_MAE],
+    ] as const) {
+      expect(lista.length, `não consegui extrair imagens da matriz de ${nome}`).toBeGreaterThan(0);
+      expect(new Set(lista).size, `a matriz de ${nome} contém nomes duplicados`).toBe(lista.length);
+    }
+    expect(IMAGENS_DO_PRODUTO_MAE).toEqual(Object.values(imagensDe(IDENTIDADE_PADRAO)).sort());
   });
 
-  it("o kit confere exatamente todas as imagens publicadas", () => {
+  it("o kit confere exatamente as imagens que o workflow deste repositório publica", () => {
     expect(
       imagensDoKit(),
       "trio_publicado() divergiu da matriz: uma imagem pode ficar invisível para install/update",
-    ).toEqual(IMAGENS);
+    ).toEqual(IMAGENS_DESTE_REPO);
   });
 
-  it("a guarda de criação de tag usa exatamente as imagens publicadas", () => {
+  it("a guarda de criação de tag usa exatamente as imagens do produto-mãe", () => {
     expect(
       imagensDoTesteDaTag(),
       "tag-so-nasce-da-main ficou com uma cópia diferente da matriz de imagens",
-    ).toEqual(IMAGENS);
+    ).toEqual(IMAGENS_DO_PRODUTO_MAE);
   });
 
-  it("a guarda do artefato do cliente usa exatamente as imagens publicadas", () => {
+  it("a guarda do artefato do cliente usa exatamente as imagens do produto-mãe", () => {
     expect(
       imagensDoTesteDePackaging(),
       "packaging-artefato-do-cliente ficou com uma cópia diferente da matriz de imagens",
-    ).toEqual(IMAGENS);
+    ).toEqual(IMAGENS_DO_PRODUTO_MAE);
   });
 });

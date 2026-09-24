@@ -12,7 +12,8 @@ describe("resolveBranding", () => {
     expect(resolveBranding(undefined, undefined)).toEqual({
       name: DEFAULT_APP_NAME,
       logoUrl: null,
-      initial: "D",
+      // A marca padrão vem da identidade (docs/FORK.md, 8.1); a inicial acompanha.
+      initial: [...DEFAULT_APP_NAME][0],
     });
   });
 
@@ -131,7 +132,8 @@ describe("nome do arquivo de códigos de recuperação", () => {
   it("deriva o prefixo da marca, sem acento e sem espaço", () => {
     expect(prefixoDoArquivo("Vendas Turbo")).toBe("vendas-turbo");
     expect(prefixoDoArquivo("Ótima Gestão")).toBe("otima-gestao");
-    expect(prefixoDoArquivo(DEFAULT_APP_NAME)).toBe("deskcommcrm");
+    // A marca padrão vem da identidade (docs/FORK.md, 8.1): o que se prende é a FORMA do prefixo.
+    expect(prefixoDoArquivo(DEFAULT_APP_NAME)).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
   });
 
   it("não devolve hífen pendurado nem repetido", () => {
@@ -209,23 +211,25 @@ type EntradaDeMarca = {
 
 const MARCA_CONGELADA: Record<string, EntradaDeMarca> = {
   // ─── PROTOCOLO — contrato de fio. Renomear quebra integração alheia. ───
-  "app/api/v1/webhooks/in/[token]/route.ts": {
-    categoria: "PROTOCOLO",
+  // ── A CASA DO PADRÃO (docs/FORK.md, 8.1) ──────────────────────────────────
+  // Cookie de sessão, cookie de impersonação, cabeçalhos do webhook, sufixo do iCal e
+  // chave do tema DERIVAM do slug da identidade; os arquivos que os escreviam à mão
+  // saíram desta lista porque não escrevem mais nada. O literal que sobra é o padrão
+  // do produto-mãe, escrito uma vez aqui. Um fork preenche identidade.env e nasce com
+  // os identificadores da própria marca; o produto-mãe continua idêntico ao que era.
+  "lib/identidade.ts": {
+    categoria: "PADRAO",
     motivo:
-      "header que o webhook de ENTRADA exige de quem envia. Renomear invalida a assinatura de todo integrador já configurado, e o sintoma para ele é 401 sem explicação",
-    marcas: ["x-deskcomm-signature"],
-  },
-  "lib/automation/actions/call-webhook.ts": {
-    categoria: "PROTOCOLO",
-    motivo:
-      "headers do webhook de SAÍDA. O receptor do cliente lê o nome exato para rotear e para conferir o HMAC; renomear faz o payload chegar e ser descartado calado",
-    marcas: ["x-deskcomm-event", "x-deskcomm-signature"],
-  },
-  "lib/automation/actions/call-webhook.test.ts": {
-    categoria: "PROTOCOLO",
-    motivo:
-      "é a guarda do contrato acima: este teste é o que reprova quem renomear o header. Trocar a string aqui para 'limpar a marca' desarmaria a única proteção que o contrato tem",
-    marcas: ["x-deskcomm-event", "x-deskcomm-signature", "x-deskcomm-signature"],
+      "a identidade do produto-mãe, escrita uma vez: repositório, marca, slug e os nomes históricos das imagens. É o que vale sem identidade.env, e a fonte de que cookie, cabeçalhos, iCal e tema derivam",
+    marcas: [
+      "deskcomm",
+      "deskcomm-scheduler",
+      "deskcomm-voice-agent",
+      "deskcomm-worker",
+      "deskcommcrm",
+      "deskcommcrm",
+      "deskcommcrm",
+    ],
   },
   "lib/mcp/server.ts": {
     categoria: "PROTOCOLO",
@@ -251,47 +255,8 @@ const MARCA_CONGELADA: Record<string, EntradaDeMarca> = {
       "User-Agent exigido pela Nuvemshop, que identifica a aplicação registrada na plataforma deles. Trocar pelo nome do revendedor descreveria uma aplicação que não existe lá",
     marcas: ["deskcommcrm"],
   },
-  "lib/agenda/google/evento.ts": {
-    categoria: "PROTOCOLO",
-    motivo:
-      "sufixo do `iCalUID` e prefixo das `extendedProperties` que GRAVAMOS dentro do Google Calendar do cliente. É por essa string que reconhecemos, meses depois, quais eventos daquela agenda vieram do CRM — e é o que impede o laço de eco. Trocar pela marca do revendedor faz todo evento já criado deixar de ser reconhecido, e o sintoma é compromisso fantasma ocupando horário, sem erro nenhum",
-    marcas: ["deskcomm", "deskcomm.app"],
-  },
 
   // ─── INFRA — cookie/storage/contêiner. Renomear desloga ou perde estado. ───
-  "app/layout.tsx": {
-    categoria: "INFRA",
-    motivo:
-      "chave de localStorage do tema, lida no script anti-flash. Renomear faz todo mundo voltar ao tema claro no próximo acesso — e o par com lib/theme.tsx tem de mudar junto",
-    marcas: ["deskcomm-theme"],
-  },
-  "lib/theme.tsx": {
-    categoria: "INFRA",
-    motivo: "a mesma chave de localStorage do script do layout; as duas são um par só",
-    marcas: ["deskcomm-theme"],
-  },
-  "lib/supabase/browser.ts": {
-    categoria: "INFRA",
-    motivo:
-      "nome do cookie de sessão. Renomear invalida a sessão de todo usuário logado no momento da atualização — o `update.sh` do clone viraria um logout em massa",
-    marcas: ["sb-deskcomm-auth"],
-  },
-  "lib/supabase/server.ts": {
-    categoria: "INFRA",
-    motivo: "o mesmo cookie de sessão, lido no servidor; tem de casar com o do browser",
-    marcas: ["sb-deskcomm-auth"],
-  },
-  "lib/impersonate/cookie.ts": {
-    categoria: "INFRA",
-    motivo:
-      "nome do cookie de impersonação. Renomear deixa órfã a sessão de suporte já aberta, e o operador fica preso na conta do tenant sem o cookie que o traz de volta",
-    marcas: ["deskcomm-impersonate"],
-  },
-  "lib/impersonate/cookie-edge.ts": {
-    categoria: "INFRA",
-    motivo: "o mesmo cookie de impersonação, na cópia que o middleware edge consegue importar",
-    marcas: ["deskcomm-impersonate"],
-  },
 
   "hooks/ai/useDebugToggle.ts": {
     categoria: "INFRA",
@@ -323,12 +288,6 @@ const MARCA_CONGELADA: Record<string, EntradaDeMarca> = {
   },
 
   // ─── PADRAO — a marca padrão precisa existir em algum lugar. ───
-  "lib/branding.ts": {
-    categoria: "PADRAO",
-    motivo:
-      "é a DEFINIÇÃO de DEFAULT_APP_NAME — o valor que aparece quando o operador não configurou marca nenhuma. Se esta linha sumir, some o padrão",
-    marcas: ["deskcommcrm"],
-  },
 };
 
 /**
@@ -948,10 +907,21 @@ const HOSTS_DECLARADOS: Record<string, EntradaDeHost> = {
     motivo:
       "host do Google Meet aceito na validação do link de reunião (`meetVideoUrl`): é entrada que o produto CONFERE, não endereço que ele busca. Sem a linha, qualquer host passaria por link de reunião.",
   },
-  "deskcomm.app": {
+  // ── identidade do repositório (docs/FORK.md, 8.1) ────────────────────────
+  // O sufixo do iCalUID (`<slug>.app`) saiu daqui: ele deriva do slug em
+  // lib/identidade e não é mais host escrito no código. O que sobra escrito é o
+  // padrão do produto-mãe, que o kit grava no .env de toda instalação e os
+  // Dockerfiles carimbam no label de origem — identificador que docker, GHCR e
+  // GitHub leem, não endereço que o app chama.
+  "ghcr.io": {
     categoria: "PROTOCOLO",
     motivo:
-      "sufixo do iCalUID gravado no Google Calendar do cliente (lib/agenda/google/evento.ts). Identificador de fio que reconhecemos meses depois — já congelado como PROTOCOLO pela catraca de marca.",
+      "registro padrão das imagens (lib/identidade, IDENTIDADE_PADRAO.namespace). O kit grava `ghcr.io/<dono>/<imagem>` no .env da instalação e o compose faz pull de lá; o app nunca chama esse host.",
+  },
+  "github.com": {
+    categoria: "PROTOCOLO",
+    motivo:
+      "origem do repositório (lib/identidade, `origemDe`): vai no label `org.opencontainers.image.source` das imagens e no /llms.txt. Identificador que ferramenta de fora lê; o app não faz request para ele.",
   },
 };
 
@@ -1099,7 +1069,10 @@ describe("catraca de host de terceiro no código que embarca", () => {
       "000000000000-xxxxxxxx.apps.googleusercontent.com",
       "aistudio.google.com",
       "console.anthropic.com",
-      "deskcomm.app",
+      // Decisão escrita (docs/FORK.md, 8.1): o padrão da identidade mora em
+      // lib/identidade e é identificador de fio, não destino de chamada.
+      "ghcr.io",
+      "github.com",
       // Link que abre o pino que o CLIENTE mandou (`lib/messaging/localizacao.ts`).
       // Mesma natureza do `wa.me` abaixo: o produto não fala com o host, quem
       // abre é o celular do atendente. Crescimento escrito, como a regra pede.

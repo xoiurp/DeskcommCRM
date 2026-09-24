@@ -27,6 +27,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { alvoDe, classificarFalhaDeAlcance, type FalhaDeAlcance } from "@/lib/net/alcance";
 import { validarConfigRedisRest } from "@/lib/redis-config";
+import { IDENTIDADE } from "@/lib/identidade";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -319,6 +320,9 @@ export async function GET(req: NextRequest) {
         // um campo ausente — ele desliga a pergunta em vez de deixá-la aberta.
         // Por isso o fallback agora é "desconhecido", e não um número plausível.
         version: process.env.APP_VERSION || "desconhecido",
+        // O slug da identidade (lib/identidade): prova, no primeiro deploy, que a imagem
+        // no ar é a deste repositório e não a do produto-mãe (docs/FORK.md, 8.1).
+        identidade: { slug: IDENTIDADE.slug },
         timestamp: new Date().toISOString(),
         checks,
       },

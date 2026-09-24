@@ -7,9 +7,12 @@
 # deveria ser offline. Doutrina: docs/doctrine/packaging.md, invariante 1.
 FROM alpine:3.20
 
-LABEL org.opencontainers.image.source="https://github.com/melgarafael/DeskcommCRM" \
+# Identidade do repositório (docs/FORK.md, 8.1): vazio = padrão do produto-mãe.
+ARG IDENTIDADE_ORIGEM
+ARG IDENTIDADE_MARCA
+LABEL org.opencontainers.image.source="${IDENTIDADE_ORIGEM:-https://github.com/melgarafael/DeskcommCRM}" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.title="DeskcommCRM scheduler"
+      org.opencontainers.image.title="${IDENTIDADE_MARCA:-DeskcommCRM} scheduler"
 
 ENV TZ=UTC
 

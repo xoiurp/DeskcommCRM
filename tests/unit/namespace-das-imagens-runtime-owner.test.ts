@@ -1,12 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
 import {
   corridaInternaDeFork,
   donoConfiavelDoRunner,
   donoDo,
+  kitAvaliado,
 } from "./_identidade-deste-repo";
 
 /**
@@ -27,13 +25,8 @@ import {
  * `pnpm test:unit`.
  */
 
-const RAIZ = process.cwd();
-const COMUM = fs.readFileSync(path.join(RAIZ, "hostgator-setup-kit/_common.sh"), "utf8");
-
 function imgNs(): string {
-  const m = COMUM.match(/^IMG_NS="([^"]+)"$/m);
-  if (!m?.[1]) throw new Error("não achei IMG_NS em hostgator-setup-kit/_common.sh");
-  return m[1];
+  return kitAvaliado().IMG_NS;
 }
 
 describe("o namespace das imagens é ancorado fora do diff do PR", () => {

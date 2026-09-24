@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { CHAVE_DO_TEMA } from "@/lib/identidade";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -8,7 +9,7 @@ export type ResolvedTheme = "light" | "dark";
 // Exportada para o teste reusar em vez de duplicar o literal — duplicar
 // acionaria `tests/unit/branding.test.ts` (a mesma marca hardcoded, fora da
 // lista congelada, num segundo arquivo).
-export const STORAGE_KEY = "deskcomm-theme";
+export const STORAGE_KEY = CHAVE_DO_TEMA;
 
 type ThemeContextValue = {
   /** User preference: light, dark, or system. */

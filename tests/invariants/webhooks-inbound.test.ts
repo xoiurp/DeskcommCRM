@@ -10,6 +10,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 import { createAdminClient } from "@/lib/supabase/admin";
 import { POST } from "@/app/api/v1/webhooks/in/[token]/route";
 import { GOV_ORG, GOV_PIPELINE, GOV_STAGE, seedGov, sql } from "./gov-helpers";
+import { CABECALHO_DE_ASSINATURA } from "@/lib/identidade";
 
 /**
  * Task 6 (spec webhooks/automação 2026-07-17) — rota inbound pública
@@ -473,7 +474,7 @@ describe("POST /api/v1/webhooks/in/[token] (Task 6)", () => {
     const reqWithSig = new NextRequest(`http://localhost/api/v1/webhooks/in/${TOKEN_SECRET}`, {
       method: "POST",
       body: rawBody,
-      headers: { "content-type": "application/json", "x-deskcomm-signature": validSig },
+      headers: { "content-type": "application/json", [CABECALHO_DE_ASSINATURA.toLowerCase()]: validSig },
     });
     const resWithSig = await POST(reqWithSig, reqCtx(TOKEN_SECRET));
     expect(resWithSig.status).toBe(200);

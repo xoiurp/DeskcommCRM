@@ -1,3 +1,6 @@
+// Identidade do repositório (docs/FORK.md, 8.1) antes de tudo: com IDENTIDADE_OBRIGATORIA e sem identidade.env, o worker não sobe.
+import "@/lib/identidade/carregar";
+
 import { createApprovedReplyHandler } from "@/lib/agent-engine/agent/approved-reply";
 import { turnKnobsFromEnv } from "@/lib/agent-engine/agent/turn-knobs";
 import { createMeetDeliveryHandler } from "@/lib/agent-engine/agent/meet-delivery";
