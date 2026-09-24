@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { derivadosDe, IDENTIDADE_PADRAO, imagensDe, origemDe, slugDe } from "@/lib/identidade";
-import { carregarIdentidade, lerIdentidadeEnv } from "@/lib/identidade/arquivo";
+import { carregarIdentidade, lerIdentidadeEnv, OBRIGATORIAS_NO_BUILD } from "@/lib/identidade/arquivo";
 
 describe("identidade: tudo deriva do slug, num lugar só", () => {
   it("cookies, cabeçalhos, iCal e tema saem do mesmo slug", () => {
@@ -65,18 +65,31 @@ describe("identidade.env", () => {
     expect(lerIdentidadeEnv(texto)).toEqual({ IDENTIDADE_MARCA: "Acme", IDENTIDADE_SLUG: "acme" });
   });
 
-  it("com IDENTIDADE_OBRIGATORIA e sem arquivo, carregar lança em vez de cair no padrão", () => {
+  it("com IDENTIDADE_OBRIGATORIA, faltar QUALQUER das cinco chaves do build lança, nomeando o que falta", () => {
+    // Identidade parcial numa imagem publicada, sem aviso, é o pior caso: por isso o build inteiro
+    // reprova, e o primeiro build de um repositório de cliente sem as variáveis falha de propósito.
     const raiz = mkdtempSync(join(tmpdir(), "identidade-"));
     writeFileSync(join(raiz, "IDENTIDADE_OBRIGATORIA"), "");
-    const marca = process.env.IDENTIDADE_MARCA;
-    delete process.env.IDENTIDADE_MARCA;
+    const guardado = Object.fromEntries(OBRIGATORIAS_NO_BUILD.map((k) => [k, process.env[k]]));
+    for (const k of OBRIGATORIAS_NO_BUILD) delete process.env[k];
     try {
-      expect(() => carregarIdentidade(raiz)).toThrow(/obrigatória e ausente/);
-      writeFileSync(join(raiz, "identidade.env"), "IDENTIDADE_MARCA=Acme\n");
+      expect(() => carregarIdentidade(raiz)).toThrow(/obrigatória e ausente \(IDENTIDADE_NAMESPACE, IDENTIDADE_REPO, IDENTIDADE_MARCA, IDENTIDADE_SLUG, IDENTIDADE_IMAGENS\)/);
+      writeFileSync(
+        join(raiz, "identidade.env"),
+        "IDENTIDADE_NAMESPACE=ghcr.io/acme\nIDENTIDADE_REPO=crm\nIDENTIDADE_MARCA=Acme\nIDENTIDADE_SLUG=acme\n",
+      );
+      expect(() => carregarIdentidade(raiz)).toThrow(/ausente \(IDENTIDADE_IMAGENS\)/);
+      for (const k of OBRIGATORIAS_NO_BUILD) delete process.env[k];
+      writeFileSync(
+        join(raiz, "identidade.env"),
+        "IDENTIDADE_NAMESPACE=ghcr.io/acme\nIDENTIDADE_REPO=crm\nIDENTIDADE_MARCA=Acme\nIDENTIDADE_SLUG=acme\nIDENTIDADE_IMAGENS=acme\n",
+      );
       expect(carregarIdentidade(raiz).IDENTIDADE_MARCA).toBe("Acme");
     } finally {
-      delete process.env.IDENTIDADE_MARCA;
-      if (marca !== undefined) process.env.IDENTIDADE_MARCA = marca;
+      for (const k of OBRIGATORIAS_NO_BUILD) {
+        delete process.env[k];
+        if (guardado[k] !== undefined) process.env[k] = guardado[k];
+      }
     }
   });
 });

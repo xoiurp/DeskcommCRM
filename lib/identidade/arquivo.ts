@@ -20,6 +20,14 @@ export const CHAVES = [
   "IDENTIDADE_WORKFLOW_DE_IMAGENS",
 ] as const;
 
+export const OBRIGATORIAS_NO_BUILD = [
+  "IDENTIDADE_NAMESPACE",
+  "IDENTIDADE_REPO",
+  "IDENTIDADE_MARCA",
+  "IDENTIDADE_SLUG",
+  "IDENTIDADE_IMAGENS",
+] as const;
+
 export function lerIdentidadeEnv(texto: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const linha of texto.split("\n")) {
@@ -49,11 +57,19 @@ export function carregarIdentidade(raiz: string = process.cwd()): Record<string,
     const v = process.env[chave]?.trim();
     if (v) efetivas[chave] = v;
   }
-  if (existsSync(join(raiz, "IDENTIDADE_OBRIGATORIA")) && !efetivas.IDENTIDADE_MARCA) {
-    throw new Error(
-      `identidade obrigatória e ausente: crie ${arquivo} a partir de identidade.env.example ` +
-        "(ou passe IDENTIDADE_* pelo ambiente). Este repositório não sobe com a identidade do produto-mãe.",
-    );
+  if (existsSync(join(raiz, "IDENTIDADE_OBRIGATORIA"))) {
+    // As cinco chaves que o BUILD cozinha na imagem (marca e slug no bundle; namespace, repositório
+    // e prefixo das imagens no label de origem, no /llms.txt e nos nomes que o kit espera). A de voz é
+    // do kit em tempo de execução, e a do workflow é dos testes: nenhuma das duas entra na imagem.
+    // Faltar UMA reprova o build inteiro: imagem com identidade parcial e sem aviso é o pior caso.
+    const faltam = OBRIGATORIAS_NO_BUILD.filter((chave) => !efetivas[chave]);
+    if (faltam.length > 0) {
+      throw new Error(
+        `identidade obrigatória e ausente (${faltam.join(", ")}): crie ${arquivo} a partir de ` +
+          "identidade.env.example, ou passe IDENTIDADE_* pelo ambiente/build-arg. " +
+          "Este repositório não sobe com a identidade do produto-mãe.",
+      );
+    }
   }
   return efetivas;
 }
