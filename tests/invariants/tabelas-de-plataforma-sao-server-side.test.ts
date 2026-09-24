@@ -8,8 +8,10 @@
  * advisor de segurança do Supabase apontava. Molde de
  * `credencial-de-anuncios-e-server-side.test.ts`.
  *
- * Sabotagem: sem o bloco da 0399 no baseline, os 6 casos de `anon`/`authenticated`
- * ficam vermelhos (privilégios DELETE,INSERT,…); os 3 de `service_role` seguem verdes.
+ * Sabotagem (medida em 24/09/2026 com `pnpm test:db`): sem o bloco da 0399 no baseline, 5 casos de `anon`/`authenticated`
+ * ficam vermelhos (privilégios DELETE,INSERT,…) — 5 e não 6 porque a 0050 já revogava `anon` de
+ * `watchdog_cursors`; os 3 de `service_role` e os 3 controles positivos seguem verdes, e nenhum
+ * outro arquivo da suíte muda (263 verdes).
  */
 import { describe, expect, it } from "vitest";
 
