@@ -8,8 +8,9 @@
  * funções; a 0398 fecha a última (`fn_resolve_inbound_number`, da 0347). Este
  * invariante impede a 165ª de nascer sem ele.
  *
- * Sabotagem: sem o bloco da 0398 no baseline, o segundo caso fica vermelho com
- * exatamente `fn_resolve_inbound_number(p_number text)`; o controle positivo segue verde.
+ * Sabotagem (medida em 24/09/2026 com `pnpm test:db`): sem a cláusula no apêndice, o segundo caso fica vermelho com
+ * exatamente `fn_resolve_inbound_number(p_number text)` — 1 vermelho de 2235, o previsto; o controle
+ * positivo e os outros 263 arquivos seguem verdes.
  */
 import { describe, expect, it } from "vitest";
 
