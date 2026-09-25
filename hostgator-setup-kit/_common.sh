@@ -1227,7 +1227,7 @@ completar_pin_ausente() {  # completar_pin_ausente [envfile]
   # e o `.env` original chega intacto do outro lado, com as customizações.
   [ -w "$envfile" ] || return 0
 
-  for par in "WORKER_IMAGE:worker:deskcomm-worker" "SCHEDULER_IMAGE:scheduler:deskcomm-scheduler"; do
+  for par in "WORKER_IMAGE:worker:$IMG_WORKER" "SCHEDULER_IMAGE:scheduler:$IMG_SCHEDULER"; do  # a referência da IDENTIDADE (docs/FORK.md 8.1), não nome cravado: num fork gravava ghcr.io/<dono>/deskcomm-worker, imagem que não existe
     chave="${par%%:*}"; svc="$(printf '%s' "$par" | cut -d: -f2)"; repo="${par##*:}"
 
     # LACUNA apenas. Valor explícito (mesmo em canal móvel) é intocável.
@@ -1239,7 +1239,7 @@ completar_pin_ausente() {  # completar_pin_ausente [envfile]
     # `<no value>` = imagem sem o label (build local). Canal não é versão.
     case "$ver" in ""|"<no value>"|latest|main|stable) continue ;; esac
 
-    set_env_var "$envfile" "$chave" "${IMG_NS}/${repo}:${ver}"
+    set_env_var "$envfile" "$chave" "${repo}:${ver}"
     set_env_var "$envfile" "${chave%_IMAGE}_PULL_POLICY" missing
     corrigidos="$corrigidos $svc"
   done

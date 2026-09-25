@@ -1701,6 +1701,12 @@ montar_vps() {
   # de qualquer mensagem — e todo cenario reporta "o update.sh nao chegou ao
   # banco / ao fim / ao up -d", que le como defeito do produto e e cenario faltando.
   cp install.sh update.sh backup.sh _common.sh marca-emails.sh manutencao.sh "$raiz/"
+  # As referências que ESTE kit copiado vai gravar (identidade.env ao lado dele ou o padrão): a asserção
+  # compara contra o que ele deriva, não contra nome cravado (num fork com identidade própria os nomes mudam).
+  eval "$(cd "$raiz" && bash -c '. ./_common.sh; printf "VPS_IMG_APP=%q
+VPS_IMG_WORKER=%q
+VPS_IMG_SCHEDULER=%q
+" "$IMG_APP" "$IMG_WORKER" "$IMG_SCHEDULER"')"
   cp -R manutencao "$raiz/"
   : > "$VPS_PROJ/docker-compose.prod.yml"
   cat > "$raiz/bin/docker"
@@ -1907,9 +1913,9 @@ STUB
   # sobrevive aos dois caminhos, com rede e sem.
   img_app="$(valor_no_env "$VPS_PROJ/.env" APP_IMAGE)"
   tag_app="${img_app##*:}"
-  for par in "WORKER_IMAGE:deskcomm-worker" "SCHEDULER_IMAGE:deskcomm-scheduler"; do
+  for par in "WORKER_IMAGE:$VPS_IMG_WORKER" "SCHEDULER_IMAGE:$VPS_IMG_SCHEDULER"; do
     chave="${par%%:*}"; repo="${par##*:}"
-    if [ "$(valor_no_env "$VPS_PROJ/.env" "$chave")" != "${IMG_NS}/${repo}:${tag_app}" ]; then
+    if [ "$(valor_no_env "$VPS_PROJ/.env" "$chave")" != "${repo}:${tag_app}" ]; then
       printf '  ✗ %s não acompanha a versão do app (%s): %s\n' "$chave" "$tag_app" \
         "$(grep -E "^${chave}=" "$VPS_PROJ/.env" || echo '(ausente)')"
       printf '     app numa versão e worker em outra é a matriz que ninguém testou.\n'; exit 1
@@ -2089,9 +2095,9 @@ STUB
   rodar install.sh --yes >/dev/null
   unset REPO_URL
 
-  for par in "APP_IMAGE:deskcommcrm" "WORKER_IMAGE:deskcomm-worker" "SCHEDULER_IMAGE:deskcomm-scheduler"; do
+  for par in "APP_IMAGE:$VPS_IMG_APP" "WORKER_IMAGE:$VPS_IMG_WORKER" "SCHEDULER_IMAGE:$VPS_IMG_SCHEDULER"; do
     chave="${par%%:*}"; repo="${par##*:}"
-    if [ "$(valor_no_env "$VPS_PROJ/.env" "$chave")" != "${IMG_NS}/${repo}:1.10.0" ]; then
+    if [ "$(valor_no_env "$VPS_PROJ/.env" "$chave")" != "${repo}:1.10.0" ]; then
       printf '  ✗ %s não foi pinado na versão resolvida (1.10.0): %s\n' "$chave" \
         "$(grep -E "^${chave}=" "$VPS_PROJ/.env" || echo '(ausente)')"
       printf '     instalação de cliente NUNCA nasce em tag móvel — docs/doctrine/packaging.md, invariante 3.\n'
