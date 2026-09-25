@@ -143,6 +143,14 @@ jobs:
       fail-fast: false
       matrix:
         parte: [1, 2, 3]
+    # `pull-requests: read` é para o passo "A prévia deste PR mediu a main de agora?": ele lê
+    # `pulls/N/files` e, só com `contents: read`, a chamada falhava (a mesma que o
+    # invariants-alcance faz com esta permissão). Medido em 25/09/2026 num fork: a parte 1 morria
+    # nesse passo em 0,2 min, com `2>/dev/null` engolindo o erro, e um terço da suíte unitária
+    # nunca rodava enquanto o vermelho era lido como "a prévia conhecida".
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
 
@@ -171,6 +179,9 @@ jobs:
       # quem vai mesclar — este passo só tira a decisão do escuro.
       - name: A prévia deste PR mediu a main de agora?
         if: github.event_name == 'pull_request' && matrix.parte == 1
+        # Este passo é informativo por desenho ("nunca reprova", acima). Um erro dele não pode
+        # derrubar a parte 1 e levar um terço dos testes junto.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -182,7 +193,11 @@ jobs:
             echo "::warning::não consegui comparar a base da prévia com a ${GITHUB_BASE_REF:-main} — NÃO MEDIDO"; exit 0; }
           atraso=$(printf '%s' "$comp" | jq -r '.ahead_by // 0')
           printf '%s' "$comp" | jq -r '.files[]?.filename' | sort -u > /tmp/main-andou.txt
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[].filename' 2>/dev/null | sort -u > /tmp/pr-toca.txt
+          # Falha aqui é NÃO MEDIDO com aviso, nunca uma saída calada com erro: o que `2>/dev/null` escondia
+          # (permissão) derrubava a parte inteira.
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files" --jq '.[].filename' > /tmp/pr-toca.raw 2>/tmp/pr-toca.err || {
+            echo "::warning::não consegui listar os arquivos do PR ($(head -c 200 /tmp/pr-toca.err)) — NÃO MEDIDO"; exit 0; }
+          sort -u /tmp/pr-toca.raw > /tmp/pr-toca.txt
           cruzamento=$(comm -12 /tmp/main-andou.txt /tmp/pr-toca.txt)
           n=$(printf '%s' "$cruzamento" | grep -c . || true)
           {
@@ -231,6 +246,11 @@ jobs:
 
       - name: Typecheck
         if: matrix.parte == 1
+        # Heap explícito: o padrão do V8 escala com a RAM da máquina e no runner (7 GB) fica em
+        # ~2 GB; o `tsc` deste repositório estoura isso ("JavaScript heap out of memory", exit 134,
+        # medido em 25/09/2026 num fork, no primeiro run em que a parte 1 passou da prévia).
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm typecheck
 
       # Na parte 2, não na 1: o porquê e a conta estão no cabeçalho do job.
