@@ -15,8 +15,10 @@ import {
   type EventoExternoLido,
   type LeituraDeEvento,
   doEventoDoGoogle,
+  PREFIXO_PROPRIEDADE,
   paraEventoDoGoogle,
   participantesDoAgendamento,
+  SUFIXO_ICAL_UID,
 } from "@/lib/agenda/google/evento";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
@@ -115,7 +117,11 @@ describe("paraEventoDoGoogle", () => {
 
     // O que amarra o evento de lá à linha daqui passa a ser o ID, que é nosso
     // por construção e que o Google preserva.
-    expect(idDeEventoDoGoogle(AGENDAMENTO).startsWith("deskcommapp")).toBe(true);
+    // O prefixo do id é o sufixo do iCal da IDENTIDADE, no alfabeto do Google ([a-v0-9]):
+    // num fork com identidade própria o literal antigo (`deskcommapp`) reprovava.
+    const prefixoDoId = SUFIXO_ICAL_UID.toLowerCase().replace(/[^a-v0-9]/g, "");
+    expect(prefixoDoId.length).toBeGreaterThan(0);
+    expect(idDeEventoDoGoogle(AGENDAMENTO).startsWith(prefixoDoId)).toBe(true);
     expect(ehEventoNosso(idDeEventoDoGoogle(AGENDAMENTO))).toBe(true);
     // E o controle: evento de terceiro não é reconhecido como nosso.
     expect(ehEventoNosso("abc123doGoogle")).toBe(false);
@@ -126,9 +132,10 @@ describe("paraEventoDoGoogle", () => {
     // Sem isto não há como perguntar ao Google "quais eventos desta agenda são
     // meus" sem varrer o calendário inteiro.
     const corpo = paraEventoDoGoogle(agendamento());
+    // As chaves levam o prefixo da identidade (`<slug>_org`), não um literal.
     expect(corpo.extendedProperties.private).toMatchObject({
-      deskcomm_org: ORG,
-      deskcomm_appointment: AGENDAMENTO,
+      [`${PREFIXO_PROPRIEDADE}_org`]: ORG,
+      [`${PREFIXO_PROPRIEDADE}_appointment`]: AGENDAMENTO,
     });
   });
 
